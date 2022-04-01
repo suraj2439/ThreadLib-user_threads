@@ -1,4 +1,9 @@
+#define _GNU_SOURCE
 #include <stdio.h>
+#include <stdlib.h>  
+#include <linux/sched.h>
+#include <sched.h>
+#include <unistd.h>
 
 #define INVAL_INP	10
 
@@ -11,6 +16,12 @@ typedef struct node {
 } node;
 
 typedef node* tid_list;
+
+typedef struct wrap_fun_info {
+	void (*fun)(void *);
+	void *args;
+	mThread *thread;
+} wrap_fun_info;
 
 // global tid table to store thread ids 
 // of current running therads
@@ -33,14 +44,37 @@ void init_threading() {
 }
 
 
-int thread_create(mThread *thread, void *attr, void *routine, void *args) {
-	if(! thread || ! routine) return INVAL_INP;
-	
-	CLONE_FLAGS = CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD |CLONE_SYSVSEM|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID;
-
-
-
+int execute_me(void *execute_arg_struct) {
+	wrap_fun_info *info = (wrap_fun_info*)execute_arg_struct;
+	info->fun(info->args);
+	return 0;
 }
 
 
+int thread_create(mThread *thread, void *attr, void *routine, void *args) {
+	if(! thread || ! routine) return INVAL_INP;
+	
+	unsigned long int CLONE_FLAGS = CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD |CLONE_SYSVSEM|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID;
+	wrap_fun_info *info = (wrap_fun_info*)malloc(sizeof(wrap_fun_info));
+	info->fun = routine;
+	info->args = args;
+	info->thread = thread;
+	void *stack = (void *)malloc(sizeof(int)*4000);
+	*thread = clone(execute_me, stack, CLONE_FLAGS, (void *)info);
+	tid_insert(*thread);
+}
 
+void myFun() {
+	printf("thread fun: waiting for 1 sec.\n");
+	sleep(1);
+	printf("hello inside my function.\n");
+}
+
+int main() {
+	mThread td;
+	thread_create(&td, NULL, myFun, NULL);
+	printf("main fun waiting for 3 sec.\n");
+	sleep(3);
+	printf("%ld\n", td);
+	return 0;
+}
