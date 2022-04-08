@@ -4,6 +4,7 @@
 #include <linux/sched.h>
 #include <sched.h>
 #include <unistd.h>
+ #include <syscall.h>
 
 #define INVAL_INP	10
 #define DEFAULT_STACK_SIZE	4096
@@ -37,7 +38,6 @@ typedef node* tid_list;
 // global tid table to store thread ids 
 // of current running therads
 tid_list tid_table;
-int lock =0;
 
 
 // insert thread_id node in beginning of list
@@ -47,15 +47,9 @@ int tid_insert(node* nn, thread_id tid, int stack_size, void *stack_start) {
 	nn->stack_size = stack_size;
 	nn->stack_start = stack_start;
 	nn->next = NULL;
-	
 
-	lock=1;
 	nn->next = tid_table;
 	tid_table = nn;
-
-	node *tmp = tid_table;
-
-	lock = 0;
 }
 /*
 void tid_insert(tid_list *l, thread_id tid, int stack_size, void *stack_start) {
@@ -98,11 +92,27 @@ int thread_join(mThread tid, void **retval){
 		return NO_THREAD_FOUND;
 
 	while(n->state!=THREAD_TERMINATED)
-		printf("%d %ld\n", n->state, n->tid);
+		;
 
 	*retval = n->ret_val;
 	return 0;
 	
+}
+
+void thread_exit(void *retval) {
+	thread_id curr_tid = (thread_id)gettid();
+	node *n = tid_table;
+
+	while(n && n->tid != curr_tid)
+		n = n->next;
+	
+	if(!n ) return;
+
+	// free(n->wrapper_fun);
+	// free(n->stack_start);
+	n->ret_val = retval;
+	n->state = THREAD_TERMINATED;
+	syscall(SYS_exit, EXIT_SUCCESS);
 }
 
 
@@ -121,15 +131,17 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 	
 	*thread = clone(execute_me, stack, CLONE_FLAGS, (void *)new_node);	
 	tid_insert(new_node,*thread, DEFAULT_STACK_SIZE, stack);
-	printf("hello %ld\n", *thread);
 }
 
 void myFun() {
-	//sleep(1);
 	printf("inside 1st fun.\n");
+	void *a;
+	thread_exit(a);
+	printf("hello below thread exit.\n");
 }
 
 void myF() {
+
 	sleep(3);
 	printf("inside 2nd fun\n");
 }
@@ -151,17 +163,10 @@ int main() {
 	printf("maftr join2\n");
 	//printf("%ld\n", tid_table->next->tid);
 
-		while(lock==1)
-		sleep(1);
-	
-	lock=1;
-
 	node *tmp = tid_table;
 	while(tmp) {
-		printf("abcd tid %ld\n", tmp->tid);
 		printf("stack size %d\nabcd\n", tmp->stack_size);
 		tmp = tmp->next;
 	}
-	lock = 0;
 	return 0;
 	}
