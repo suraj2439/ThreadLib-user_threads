@@ -1,3 +1,5 @@
+// TODO add pid in the node to use same library instance for multiple processes.
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>  
@@ -5,12 +7,14 @@
 #include <sched.h>
 #include <unistd.h>
  #include <syscall.h>
+ #include <sys/mman.h>
 
 #define INVAL_INP	10
-#define DEFAULT_STACK_SIZE	4096
+#define DEFAULT_STACK_SIZE	32768
 #define THREAD_RUNNING 20
 #define THREAD_TERMINATED 21
 #define NO_THREAD_FOUND 22
+#define GUARD_PAGE_SIZE	4096
 
 typedef unsigned long int thread_id;
 typedef unsigned long int mThread;
@@ -113,12 +117,14 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 	info->fun = routine;
 	info->args = args;
 	info->thread = thread;
-	void *stack = (void *)malloc(sizeof(int)*4000);
 	
+	void *stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
+	mprotect(stack, GUARD_PAGE_SIZE, PROT_NONE);
+
 	node *new_node = (node*)malloc(sizeof(node));
 	new_node->wrapper_fun = info;
 	
-	*thread = clone(execute_me, stack + DEFAULT_STACK_SIZE, CLONE_FLAGS, (void *)new_node);	
+	*thread = clone(execute_me, stack + DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE, CLONE_FLAGS, (void *)new_node);	
 	tid_insert(new_node,*thread, DEFAULT_STACK_SIZE, stack);
 }
 
@@ -139,7 +145,7 @@ int main() {
 	init_threading();
 	thread_create(&td, NULL, myFun, NULL);
 	sleep(1);
-	thread_kill(td, 12);	
+	// thread_kill(td, 12);	
 	printf("hidd\n");
 	sleep(5);
 	printf("hidd\n");
