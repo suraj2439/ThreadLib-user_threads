@@ -51,24 +51,10 @@ int tid_insert(node* nn, thread_id tid, int stack_size, void *stack_start) {
 	nn->next = tid_table;
 	tid_table = nn;
 }
-/*
-void tid_insert(tid_list *l, thread_id tid, int stack_size, void *stack_start) {
-    node *p = *l;
-    node *nn = (node *)malloc(sizeof(node));
-    nn->tid = tid;
-    nn->stack_size = stack_size;
-    nn->stack_start = stack_start;
-    nn->next = NULL;
-
-    *l = nn;
-    nn->next = p;
-    return;
-}*/
 
 void init_threading() {
 	tid_table = NULL;
 }
-
 
 int execute_me(void *new_node) {
 	node *nn = (node*)new_node;
@@ -82,7 +68,6 @@ int execute_me(void *new_node) {
 int thread_join(mThread tid, void **retval){
 	if(!retval)
 		return INVAL_INP;
-
 	node* n = tid_table;
 
 	while(n && n->tid!=tid)
@@ -96,7 +81,6 @@ int thread_join(mThread tid, void **retval){
 
 	*retval = n->ret_val;
 	return 0;
-	
 }
 
 void thread_exit(void *retval) {
@@ -115,6 +99,11 @@ void thread_exit(void *retval) {
 	syscall(SYS_exit, EXIT_SUCCESS);
 }
 
+int thread_kill(mThread thread, int signal) {
+	int process_id = getpid();
+	syscall(SYS_tgkill, process_id, thread, signal);
+	return 0;
+}
 
 int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 	if(! thread || ! routine) return INVAL_INP;
@@ -129,19 +118,17 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 	node *new_node = (node*)malloc(sizeof(node));
 	new_node->wrapper_fun = info;
 	
-	*thread = clone(execute_me, stack, CLONE_FLAGS, (void *)new_node);	
+	*thread = clone(execute_me, stack + DEFAULT_STACK_SIZE, CLONE_FLAGS, (void *)new_node);	
 	tid_insert(new_node,*thread, DEFAULT_STACK_SIZE, stack);
 }
 
 void myFun() {
 	printf("inside 1st fun.\n");
-	void *a;
-	thread_exit(a);
-	printf("hello below thread exit.\n");
+	sleep(3);
+	printf("below sleep\n");
 }
 
 void myF() {
-
 	sleep(3);
 	printf("inside 2nd fun\n");
 }
@@ -151,7 +138,12 @@ int main() {
 	mThread tt;
 	init_threading();
 	thread_create(&td, NULL, myFun, NULL);
-	sleep(3);
+	sleep(1);
+	thread_kill(td, 12);	
+	printf("hidd\n");
+	sleep(5);
+	printf("hidd\n");
+	/*
 	thread_create(&tt, NULL, myF, NULL);
 	printf("bfr join.\n");
 	void **a;
@@ -162,11 +154,12 @@ int main() {
 	thread_join(tt, a);
 	printf("maftr join2\n");
 	//printf("%ld\n", tid_table->next->tid);
-
+	*/
+	/*
 	node *tmp = tid_table;
 	while(tmp) {
 		printf("stack size %d\nabcd\n", tmp->stack_size);
 		tmp = tmp->next;
-	}
+	}*/
 	return 0;
 	}
