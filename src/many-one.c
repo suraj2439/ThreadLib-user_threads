@@ -44,6 +44,8 @@ typedef struct node {
 
 typedef node* node_list;
 
+void scheduler();
+
 
 // global tid table to store thread ids 
 // of current running therads
@@ -83,8 +85,6 @@ void signal_handler_alarm() {
 
     // switch context to scheduler
     int value = sigsetjmp(*(curr_running_proc->t_context), 1);
-    // printf("inside setjump %d\n", value);
-    // traverse();
     if(! value) {
         siglongjmp(*(scheduler_node.t_context), 2);
     }
@@ -93,12 +93,16 @@ void signal_handler_alarm() {
 }
 
 int execute_me() {
-	// printf("termination start\n");
+	// printf("inside execute me\n");
 	node *nn = curr_running_proc;
 	nn->state = THREAD_RUNNING;
 	nn->wrapper_fun->fun(nn->wrapper_fun->args);
+    printf("execute me end\n");
 	nn->state = THREAD_TERMINATED;
 	// printf("termination done\n");
+    //TODO: IMP: don't call scheduler() directly,instead use long jump
+    siglongjmp(*(scheduler_node.t_context), 2);
+
 	return 0;
 }
 
@@ -113,15 +117,15 @@ void enable_alarm_signal() {
 void scheduler() {
     enable_alarm_signal();
     while(1) {
-        // printf("hello makin runnable\n");
+        // printf("inside scheduler\n");
         if(curr_running_proc->state == THREAD_RUNNING)
             curr_running_proc->state = THREAD_RUNNABLE;
+            
         // point next_proc to next thread of currently running process
         node *next_proc = curr_running_proc->next;
         if(! next_proc) next_proc = thread_list;
 
         while(next_proc->state != THREAD_RUNNABLE && next_proc->state != THREAD_EMBRYO) {
-            // printf("list %d\n", next_proc->state);
             if(next_proc->next) next_proc = next_proc->next;
             else next_proc = thread_list;
         }
@@ -178,6 +182,7 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
     static thread_id id = 0;
     node *t_node = (node *)malloc(sizeof(node));
     t_node->tid = id++;
+    *thread = t_node->tid;
     t_node->t_context = (jmp_buf*) malloc(sizeof(jmp_buf));
     t_node->ret_val = 0;         // not required
     t_node->stack_start = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
@@ -195,9 +200,35 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
     
     t_node->state = THREAD_RUNNABLE;
     thread_insert(t_node);
-    
 }
 
+int thread_join(mThread tid, void **retval) {
+	if(! retval)
+		return INVAL_INP;
+	node* n = thread_list;
+
+	while(n && n->tid != tid)
+		n = n->next;
+
+	if(!n)
+		return NO_THREAD_FOUND;
+
+	while(n->state != THREAD_TERMINATED)
+		;
+
+	*retval = n->ret_val;
+	return 0;
+}
+
+
+void thread_exit(void *retval) {
+	node* n = curr_running_proc;
+	n->ret_val = retval;
+	n->state = THREAD_TERMINATED;
+    siglongjmp(*(scheduler_node.t_context), 2);
+
+	// syscall(SYS_exit, EXIT_SUCCESS);
+}
 
 void f1() {
 	while(1){
@@ -214,31 +245,39 @@ void f2() {
 }
 
 void f3() {
-
+    int count = 0;
+    void *a;
     while(1){
 	    printf("inside 3rd function\n");
         sleep(1);
+        count+=1;
+        if(count > 4)
+            thread_exit(a);
     }
-
 }
 
 int main() {
     mThread td;
-	mThread tt;
+	mThread tt, tm;
 
 	init_many_one();
 
 	thread_create(&td, NULL, f1, NULL);
-    thread_create(&td, NULL, f2, NULL);
-    thread_create(&td, NULL, f3, NULL);
+    thread_create(&tt, NULL, f2, NULL);
+    thread_create(&tm, NULL, f3, NULL);
 	
     node* t = thread_list;
     
+    void **a;
+    // printf("%ld\n", tm);
+    // exit(1);
+    // thread_join(tm, a);
+    printf("join success");
+    // return 0;
+    // sleep(1);
     while(1){
         sleep(1);
 	    printf("inside main fun.\n");
     }
-
-
     return 0;
 }

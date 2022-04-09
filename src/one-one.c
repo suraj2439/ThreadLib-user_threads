@@ -69,7 +69,7 @@ int execute_me(void *new_node) {
 	return 0;
 }
 
-int thread_join(mThread tid, void **retval){
+int thread_join(mThread tid, void **retval) {
 	if(!retval)
 		return INVAL_INP;
 	node* n = tid_table;
@@ -131,7 +131,11 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 void myFun() {
 	printf("inside 1st fun.\n");
 	sleep(3);
+	printf("above sleep\n");
+	void *t;
+	thread_exit(t);
 	printf("below sleep\n");
+
 }
 
 void myF() {
@@ -146,9 +150,14 @@ int main() {
 	thread_create(&td, NULL, myFun, NULL);
 	sleep(1);
 	// thread_kill(td, 12);	
-	printf("hidd\n");
-	sleep(5);
-	printf("hidd\n");
+	// while(1) {
+	// 	printf("in main \n");
+	// 	sleep(1);
+	// }
+		printf("in main \n");
+	sleep(6);
+		printf("in main \n");
+
 	/*
 	thread_create(&tt, NULL, myF, NULL);
 	printf("bfr join.\n");
