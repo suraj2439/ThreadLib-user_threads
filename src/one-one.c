@@ -8,6 +8,7 @@
 #include <unistd.h>
  #include <syscall.h>
  #include <sys/mman.h>
+ #include <signal.h>
 
 #define INVAL_INP	10
 #define DEFAULT_STACK_SIZE	32768
@@ -135,7 +136,6 @@ void myFun() {
 	void *t;
 	thread_exit(t);
 	printf("below sleep\n");
-
 }
 
 void myF() {
@@ -143,12 +143,19 @@ void myF() {
 	printf("inside 2nd fun\n");
 }
 
+void signal_handler() {
+	printf("in sig handler %d\n", gettid());
+}
+
 int main() {
 	mThread td;
 	mThread tt;
 	init_threading();
+	signal(SIGALRM, signal_handler);
 	thread_create(&td, NULL, myFun, NULL);
-	sleep(1);
+	thread_create(&tt, NULL, myF, NULL);
+	printf("sending signal to %ld\n", td);
+	thread_kill(td, SIGALRM);
 	// thread_kill(td, 12);	
 	// while(1) {
 	// 	printf("in main \n");
