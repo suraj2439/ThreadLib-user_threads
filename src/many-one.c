@@ -11,7 +11,6 @@
 
 #define INVAL_INP	10
 #define DEFAULT_STACK_SIZE	32768
-#define THREAD_EMBRYO   19
 #define THREAD_RUNNING 20
 #define THREAD_TERMINATED 21
 #define THREAD_RUNNABLE 22
@@ -115,7 +114,6 @@ void enable_alarm_signal() {
 
 
 void scheduler() {
-    enable_alarm_signal();
     while(1) {
         // printf("inside scheduler\n");
         if(curr_running_proc->state == THREAD_RUNNING)
@@ -125,7 +123,7 @@ void scheduler() {
         node *next_proc = curr_running_proc->next;
         if(! next_proc) next_proc = thread_list;
 
-        while(next_proc->state != THREAD_RUNNABLE && next_proc->state != THREAD_EMBRYO) {
+        while(next_proc->state != THREAD_RUNNABLE) {
             if(next_proc->next) next_proc = next_proc->next;
             else next_proc = thread_list;
         }
@@ -133,6 +131,7 @@ void scheduler() {
         curr_running_proc = next_proc;
 
         next_proc->state = THREAD_RUNNING;
+        enable_alarm_signal();
         ualarm(ALARM_TIME, 0);
         siglongjmp(*(next_proc->t_context), 2);
     }
@@ -179,6 +178,8 @@ void init_many_one() {
 }
 
 int thread_create(mThread *thread, void *attr, void *routine, void *args) {
+    if(! thread || ! routine) return INVAL_INP;
+
     static thread_id id = 0;
     node *t_node = (node *)malloc(sizeof(node));
     t_node->tid = id++;
