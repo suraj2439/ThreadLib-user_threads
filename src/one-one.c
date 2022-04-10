@@ -155,12 +155,12 @@ int main() {
 	thread_create(&td, NULL, myFun, NULL);
 	thread_create(&tt, NULL, myF, NULL);
 	printf("sending signal to %ld\n", td);
-	thread_kill(td, SIGALRM);
+	// thread_kill(td, SIGALRM);
 	// thread_kill(td, 12);	
-	// while(1) {
-	// 	printf("in main \n");
-	// 	sleep(1);
-	// }
+	while(1) {
+		printf("in main \n");
+		sleep(1);
+	}
 		printf("in main \n");
 	sleep(6);
 		printf("in main \n");
