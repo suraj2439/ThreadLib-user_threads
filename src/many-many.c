@@ -25,6 +25,17 @@ typedef unsigned long int thread_id;
 typedef unsigned long int mThread;
 
 
+typedef struct sig_node {
+    int t_signal;
+    struct sig_node *next;
+} sig_node;
+
+typedef struct signal_info {
+    sig_node *signal_list;
+    int rem_sig_cnt;
+} signal_info;
+
+
 typedef struct wrap_fun_info {
 	void (*fun)(void *);
 	void *args;
@@ -38,6 +49,7 @@ typedef struct node {
 	int stack_size;
 	void *stack_start;
 	wrap_fun_info* wrapper_fun;
+    signal_info *sig_info;
 	int state;
 	void* ret_val;
     jmp_buf *t_context;      // use to store thread specific context
@@ -54,6 +66,8 @@ void scheduler();
 node* scheduler_node_array;
 node** curr_running_proc_array;
 
+
+// Code reference : https://stackoverflow.com/questions/69148708/alternative-to-mangling-jmp-buf-in-c-for-a-context-switch
 long int mangle(long int p) {
     long int ret;
     asm(" mov %1, %%rax;\n"
@@ -137,8 +151,8 @@ int execute_me_oo(void *new_node) {
 	nn->state = THREAD_RUNNING;
     // if(nn->wrapper_fun->args)
     //     printf("pa = %p\n", nn->wrapper_fun->fun);
-    // printf("pa = %p\n", nn->wrapper_fun->fun);
-ualarm(K_ALARM_TIME,0);
+    // printf("pa = %p\n", nn->wrapper_fun->fun);thread_kill
+    ualarm(K_ALARM_TIME,0);
     enable_alarm_signal();
 	nn->wrapper_fun->fun(nn->wrapper_fun->args);
 	nn->state = THREAD_TERMINATED;
@@ -170,6 +184,34 @@ int execute_me_mo() {
     siglongjmp(*(scheduler_node_array[nn->kthread_index].t_context), 2);
 	return 0;
 }
+
+void insert_sig_node(sig_node **head, sig_node *node) {
+    node->next = *head;
+    *head = node;
+}
+
+
+void search_thread(int *ktid, node **t_node, thread_id tid) {
+    node *n = *t_node;
+    int found_flag = 0;
+
+	for(int i=0; i<NO_OF_KTHREADS; i++){
+        n = thread_list_array[i];
+        while(n) {
+            if(n->tid == tid){
+                found_flag = 1;
+                break;
+            }
+            n = n->next;
+        }
+        if(found_flag) {
+            **t_node = *n;
+            return;
+        }
+    }
+    return;
+}
+
 
 
 // insert thread_id node in beginning of list
@@ -262,6 +304,31 @@ void init_many_many() {     // TODO call only once in therad_create
 }
 
 
+void thread_kill(mThread thread, int signal){
+    ualarm(0,0);
+    if (signal == SIGINT || signal == SIGCONT || signal == SIGSTOP)
+        kill(getpid(), signal);
+    else {
+        if(curr_running_proc_array[get_curr_kthread_index()]->tid == thread)
+            raise(signal);
+        else {
+            node* n = (node *)malloc(sizeof(node)); // redundant
+            sig_node *signal_node = (sig_node*)malloc(sizeof(sig_node));
+            signal_node->t_signal = signal;
+            int ktid;
+            search_thread(&ktid, &n, thread);
+
+            // if((n->sig_info->rem_sig_cnt == n->sig_info->arr_size))
+            //     n->sig_info->arr = realloc(n->sig_info->arr, 2*n->sig_info->arr_size);
+            insert_sig_node(&(n->sig_info->signal_list), signal_node);
+            n->sig_info->rem_sig_cnt++;
+            printf("inside thread kill %d %d\n", n->sig_info->signal_list->t_signal, signal);
+        }
+    }
+    ualarm(ALARM_TIME, 0);
+}
+
+
 int thread_create(mThread *thread, void *attr, void *routine, void *args) {
     if(! thread || ! routine) return INVAL_INP;
 
@@ -304,24 +371,53 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 }
 
 
-// int thread_create(mThread *thread, void *attr, void *routine, void *args) {
-// 	if(! thread || ! routine) return INVAL_INP;
-	
-// 	unsigned long int CLONE_FLAGS = CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD |CLONE_SYSVSEM|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID;
-// 	wrap_fun_info *info = (wrap_fun_info*)malloc(sizeof(wrap_fun_info));
-// 	info->fun = routine;
-// 	info->args = args;
-// 	info->thread = thread;
-	
-// 	void *stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
-// 	mprotect(stack, GUARD_PAGE_SIZE, PROT_NONE);
+int thread_join(mThread tid, void **retval) {
+	if(! retval)
+		return INVAL_INP;
+	node* n = (node *)malloc(sizeof(node));
+    int ktid;
+    search_thread(&ktid, &n, tid);
 
-// 	node *new_node = (node*)malloc(sizeof(node));
-// 	new_node->wrapper_fun = info;
-	
-// 	*thread = clone(execute_me, stack + DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE, CLONE_FLAGS, (void *)new_node);	
-// 	tid_insert(new_node,*thread, DEFAULT_STACK_SIZE, stack);
-// }
+    // int found_flag = 0;
+
+	// for(int i=0; i<NO_OF_KTHREADS; i++){
+    //     n = thread_list_array[i];
+    //     while(n) {
+    //         if(n->tid == tid){
+    //             found_flag = 1;
+    //             break;
+    //         }
+    //         n = n->next;
+    //     }
+    //     if(found_flag)
+    //         break;
+    // }
+
+	if(!n)
+		return NO_THREAD_FOUND;
+
+	while(n->state != THREAD_TERMINATED)
+		;
+
+	*retval = n->ret_val;
+	return 0;
+}
+
+void thread_exit(void *retval) {
+
+    node* nn;
+    int index = get_curr_kthread_index();
+
+    nn = thread_list_array[index];
+    while(nn->state != THREAD_RUNNING)
+        nn = nn->next;
+
+	nn->ret_val = retval;
+	nn->state = THREAD_TERMINATED;
+    siglongjmp(*(scheduler_node_array[index].t_context), 2);
+
+	// syscall(SYS_exit, EXIT_SUCCESS);
+}
 
 void f1() {
     printf("inside first function\n");
@@ -349,8 +445,8 @@ void f3() {
 	    printf("inside 3rd function\n");
         sleep(1);
         count+=1;
-        // if(count > 4)
-        //     break;
+        if(count > 4)
+            thread_exit(a);
     }
 }
 
@@ -361,8 +457,8 @@ void f4() {
 	    printf("inside 4th function\n");
         sleep(1);
         count+=1;
-        // if(count > 4)
-        //     break;
+        if(count > 4)
+            thread_exit(a);
     }
 }
 
@@ -382,6 +478,11 @@ int main() {
     // thread_join(tm, a);
     // return 0;
     // sleep(1);
+    // printf("before join 1\n");
+    // thread_join(t3, a);
+
+    // printf("before join 2\n");
+    // thread_join(t4, a);
     while(1){
         sleep(3);
 	    printf("inside main fun.\n");
