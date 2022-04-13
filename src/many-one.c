@@ -61,6 +61,8 @@ node_list thread_list = NULL;
 node scheduler_node;
 node *curr_running_proc = NULL;
 
+
+// Code reference : https://stackoverflow.com/questions/69148708/alternative-to-mangling-jmp-buf-in-c-for-a-context-switch
 long int mangle(long int p) {
     long int ret;
     asm(" mov %1, %%rax;\n"
@@ -276,7 +278,6 @@ int thread_join(mThread tid, void **retval) {
 
 
 void thread_kill(mThread thread, int signal){
-
     ualarm(0,0);
     if (signal == SIGINT || signal == SIGCONT || signal == SIGSTOP)
         kill(getpid(), signal);
@@ -292,7 +293,6 @@ void thread_kill(mThread thread, int signal){
                 if(n==NULL)
                     return;
             }
-
             // if((n->sig_info->rem_sig_cnt == n->sig_info->arr_size))
             //     n->sig_info->arr = realloc(n->sig_info->arr, 2*n->sig_info->arr_size);
             n->sig_info->arr[n->sig_info->rem_sig_cnt++] = signal;
@@ -300,7 +300,6 @@ void thread_kill(mThread thread, int signal){
         }
     }
     ualarm(ALARM_TIME, 0);
-
 }
 
 
