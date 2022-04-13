@@ -151,6 +151,7 @@ int execute_me_oo(void *new_node) {
     // printf("pa = %p\n", nn->wrapper_fun->fun);thread_kill
     ualarm(K_ALARM_TIME,0);
     enable_alarm_signal();
+    nn->kernel_tid = gettid();
 	nn->wrapper_fun->fun(nn->wrapper_fun->args);
 	nn->state = THREAD_TERMINATED;
 	// printf("termination done %d\n", nn->kthread_index);
@@ -172,6 +173,7 @@ int execute_me_mo() {
         nn = nn->next;
     
 	// printf("inside execute me\n");
+    nn->kernel_tid = gettid();
 	nn->wrapper_fun->fun(nn->wrapper_fun->args);
     // printf("execute me end\n");
 	nn->state = THREAD_TERMINATED;
@@ -249,6 +251,7 @@ void scheduler() {
         enable_alarm_signal();
         ualarm(ALARM_TIME, 0);
         // printf("%ld %ld %d gg ", next_proc->kernel_tid, next_proc->tid, next_proc->kthread_index);
+        next_proc->kernel_tid = gettid();
         siglongjmp(*(next_proc->t_context), 2);
     }
     
@@ -300,29 +303,29 @@ void init_many_many() {     // TODO call only once in therad_create
 }
 
 
-void thread_kill(mThread thread, int signal){
-    ualarm(0,0);
-    if (signal == SIGINT || signal == SIGCONT || signal == SIGSTOP)
-        kill(getpid(), signal);
-    else {
-        if(curr_running_proc_array[get_curr_kthread_index()]->tid == thread)
-            raise(signal);
-        else {
-            node* n = (node *)malloc(sizeof(node)); // redundant
-            sig_node *signal_node = (sig_node*)malloc(sizeof(sig_node));
-            signal_node->t_signal = signal;
-            int ktid;
-            search_thread(&ktid, &n, thread);
+// void thread_kill(mThread thread, int signal){
+//     ualarm(0,0);
+//     if (signal == SIGINT || signal == SIGCONT || signal == SIGSTOP)
+//         kill(getpid(), signal);
+//     else {
+//         if(curr_running_proc_array[get_curr_kthread_index()]->tid == thread)
+//             raise(signal);
+//         else {
+//             node* n = (node *)malloc(sizeof(node)); // redundant
+//             sig_node *signal_node = (sig_node*)malloc(sizeof(sig_node));
+//             signal_node->t_signal = signal;
+//             int ktid;
+//             search_thread(&ktid, &n, thread);
 
-            // if((n->sig_info->rem_sig_cnt == n->sig_info->arr_size))
-            //     n->sig_info->arr = realloc(n->sig_info->arr, 2*n->sig_info->arr_size);
-            insert_sig_node(&(n->sig_info->signal_list), signal_node);
-            n->sig_info->rem_sig_cnt++;
-            printf("inside thread kill %d %d\n", n->sig_info->signal_list->t_signal, signal);
-        }
-    }
-    ualarm(ALARM_TIME, 0);
-}
+//             // if((n->sig_info->rem_sig_cnt == n->sig_info->arr_size))
+//             //     n->sig_info->arr = realloc(n->sig_info->arr, 2*n->sig_info->arr_size);
+//             insert_sig_node(&(n->sig_info->signal_list), signal_node);
+//             n->sig_info->rem_sig_cnt++;
+//             printf("inside thread kill %d %d\n", n->sig_info->signal_list->t_signal, signal);
+//         }
+//     }
+//     ualarm(ALARM_TIME, 0);
+// }
 
 
 int thread_create(mThread *thread, void *attr, void *routine, void *args) {
@@ -411,7 +414,7 @@ void thread_exit(void *retval) {
     int index = get_curr_kthread_index();
 
     nn = thread_list;
-    while(nn->state != THREAD_RUNNING)
+    while(nn->state != THREAD_RUNNING && nn->kernel_tid == gettid())
         nn = nn->next;
 
 	nn->ret_val = retval;
