@@ -14,7 +14,8 @@
 #define THREAD_RUNNING 20
 #define THREAD_TERMINATED 21
 #define THREAD_RUNNABLE 22
-#define NO_THREAD_FOUND 22
+#define NO_THREAD_FOUND 32
+#define THREAD_STOPPED 23
 #define GUARD_PAGE_SIZE	4096
 #define ALARM_TIME 100000  // in microseconds 
 #define DEFAULT_SIGNAL_ARRAY_LENGTH 10
@@ -52,6 +53,7 @@ typedef struct node {
 typedef node* node_list;
 
 void scheduler();
+void thread_exit(void *retval);
 
 
 // global tid table to store thread ids 
@@ -113,7 +115,7 @@ void handle_pending_signals()
     ualarm(ALARM_TIME,0);
 
     enable_alarm_signal();
-    printf("kk %d\n",  curr_running_proc->sig_info->rem_sig_cnt);
+    // printf("kk %d\n",  curr_running_proc->sig_info->rem_sig_cnt);
 }
 
 //only for testing;
@@ -144,13 +146,23 @@ void signal_handler_alarm() {
     return;
 }
 
+void sigterm_signal_handler() {
+    // 
+    printf("inside sigterm_signal_handler \n");    
+
+    thread_exit(NULL);
+    return;
+}
+
+
 int execute_me() {
 	// printf("inside execute me\n");
 	node *nn = curr_running_proc;
 	nn->state = THREAD_RUNNING;
 	nn->wrapper_fun->fun(nn->wrapper_fun->args);
     printf("execute me end\n");
-	nn->state = THREAD_TERMINATED;
+	// nn->state = THREAD_TERMINATED;
+    thread_exit(NULL);
 	// printf("termination done\n");
     //TODO: IMP: don't call scheduler() directly,instead use long jump
     siglongjmp(*(scheduler_node.t_context), 2);
@@ -223,11 +235,22 @@ void init_many_one() {
     thread_insert(main_fun_node);
 
     signal(SIGALRM, signal_handler_alarm);
+    signal(SIGTERM, sigterm_signal_handler);
+    // signal(SIGALRM, signal_handler_alarm);
+    printf("hello");
 
     ualarm(ALARM_TIME, 0);
 }
 
 int thread_create(mThread *thread, void *attr, void *routine, void *args) {
+
+
+	static int is_init_done = 0;
+	if(! is_init_done){
+		init_many_one();
+		is_init_done = 1;
+	}
+
     if(! thread || ! routine) return INVAL_INP;
 
     static thread_id id = 0;
@@ -279,8 +302,18 @@ int thread_join(mThread tid, void **retval) {
 
 void thread_kill(mThread thread, int signal){
     ualarm(0,0);
-    if (signal == SIGINT || signal == SIGCONT || signal == SIGSTOP)
+    if (signal == SIGINT || signal == SIGKILL)
         kill(getpid(), signal);
+    else if(signal == SIGCONT){
+        node* n = thread_list;
+
+        while(n && n->tid != thread){
+            n = n->next;
+            if(n==NULL)
+                return;
+        }
+        n->state = THREAD_RUNNABLE;
+    }
     else
     {
         if(curr_running_proc->tid == thread)
@@ -304,9 +337,13 @@ void thread_kill(mThread thread, int signal){
 
 
 void thread_exit(void *retval) {
+    printf("inside thread exit\n");
 	node* n = curr_running_proc;
 	n->ret_val = retval;
+    traverse();
+
 	n->state = THREAD_TERMINATED;
+    traverse();
     siglongjmp(*(scheduler_node.t_context), 2);
 
 	// syscall(SYS_exit, EXIT_SUCCESS);
@@ -342,14 +379,15 @@ int main() {
     mThread td;
 	mThread tt, tm;
 
-	init_many_one();
+	// init_many_one(); 
 
 	thread_create(&td, NULL, f1, NULL);
     thread_create(&tt, NULL, f2, NULL);
-    thread_create(&tm, NULL, f3, NULL);
-    signal(SIGVTALRM, signal_handler_vtalarm);
+    // thread_create(&tm, NULL, f3, NULL);
+    // signal(SIGVTALRM, signal_handler_vtalarm);
+
     printf("sending signal to %ld\n", tt);
-    thread_kill(tt, SIGVTALRM);
+    // thread_kill(tt, SIGVTALRM);
 
 	
     node* t = thread_list;
@@ -361,6 +399,13 @@ int main() {
     printf("join success");
     // return 0;
     // sleep(1);
+
+    // thread_kill(td, SIGTERM);
+    for(int i=0; i<10; i++)
+        printf("inside main fun waiting for cont.\n");
+    // thread_kill(td, SIGCONT);
+
+
     while(1){
         sleep(1);
 	    printf("inside main fun.\n");
