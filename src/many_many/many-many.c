@@ -20,6 +20,7 @@ node_list thread_list = NULL;
 int alarm_index = -1;
 
 void scheduler();
+void thread_exit(void *retval);
 
 
 node* scheduler_node_array;
@@ -153,7 +154,9 @@ int execute_me_oo(void *new_node) {
     enable_alarm_signal();
     nn->kernel_tid = gettid();
 	nn->wrapper_fun->fun(nn->wrapper_fun->args);
-	nn->state = THREAD_TERMINATED;
+	// nn->state = THREAD_TERMINATED;
+    thread_exit(NULL);
+
 	// printf("termination done %d\n", nn->kthread_index);
     // exit(1);
     
@@ -176,7 +179,9 @@ int execute_me_mo() {
     nn->kernel_tid = gettid();
 	nn->wrapper_fun->fun(nn->wrapper_fun->args);
     // printf("execute me end\n");
-	nn->state = THREAD_TERMINATED;
+	// nn->state = THREAD_TERMINATED;
+    thread_exit(NULL);
+
 	// printf("termination done\n");
     //TODO: IMP: don't call scheduler() directly,instead use long jump
     // siglongjmp(*(scheduler_node.t_context), 2);
@@ -340,6 +345,14 @@ int thread_kill(mThread thread, int signal){
 
 
 int thread_create(mThread *thread, void *attr, void *routine, void *args) {
+
+
+	static int is_init_done = 0;
+	if(! is_init_done){
+		init_many_many();
+		is_init_done = 1;
+	}
+
     if(! thread || ! routine) return INVAL_INP;
 
     static thread_id id = 0;
@@ -490,7 +503,7 @@ int main() {
     mThread t1,t2,t3,t4;
     // printf("pam = %p\n", f1);
 
-	init_many_many();
+	// init_many_many();
 	thread_create(&t1, NULL, f1, NULL);
     thread_create(&t2, NULL, f2, NULL);
     thread_create(&t3, NULL, f3, NULL);

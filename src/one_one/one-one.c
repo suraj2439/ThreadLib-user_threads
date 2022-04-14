@@ -41,8 +41,9 @@ int execute_me(void *new_node) {
 	node *nn = (node*)new_node;
 	nn->state = THREAD_RUNNING;
 	nn->wrapper_fun->fun(nn->wrapper_fun->args);
-	nn->state = THREAD_TERMINATED;
-	// printf("termination done\n");
+	// nn->state = THREAD_TERMINATED;
+    thread_exit(NULL);
+	printf("termination done\n");
 	return 0;
 }
 
@@ -89,6 +90,13 @@ int thread_kill(mThread thread, int signal) {
 }
 
 int thread_create(mThread *thread, void *attr, void *routine, void *args) {
+
+	static int is_init_done = 0;
+	if(! is_init_done){
+		init_threading();
+		is_init_done = 1;
+	}
+
 	if(! thread || ! routine) return INVAL_INP;
 	
 	unsigned long int CLONE_FLAGS = CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD |CLONE_SYSVSEM|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID;
@@ -137,7 +145,7 @@ void signal_handler() {
 int main() {
 	mThread td;
 	mThread tt;
-	init_threading();
+	// init_threading();
 	signal(SIGALRM, signal_handler);
 	thread_create(&td, NULL, myFun, NULL);
 	thread_create(&tt, NULL, myF, NULL);
