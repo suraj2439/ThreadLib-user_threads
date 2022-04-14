@@ -86,7 +86,7 @@ void traverse() {
     node *nn = thread_list;
 
     while(nn) {
-        printf("%d %d   ", nn->state, nn->stack_size);
+        printf("traverse %d %ld %ld  ", nn->state, nn->tid, nn->kernel_tid);
         nn = nn->next;
     }
     printf("\n");
@@ -104,9 +104,9 @@ void enable_alarm_signal() {
 
 int get_curr_kthread_index() {
     thread_id curr_ktid = gettid();
-    // printf("ktid = %ld\n", curr_ktid);
+    // printf("kernel thred id %ld\n", curr_ktid);
     for(int i = 0; i < NO_OF_KTHREADS; i++) {
-    // printf("ktid = %ld\n", thread_list_array[i]->kernel_tid);
+        // printf("array k thred id %d\n", kthread_index[i]);
 
         if(curr_ktid == kthread_index[i])
             return i;
@@ -114,6 +114,47 @@ int get_curr_kthread_index() {
     return -1;  // ERROR
 }
 
+int get_kthread_index(thread_id ktid) {
+    // printf("kernel thred id %ld\n", ktid);
+    for(int i = 0; i < NO_OF_KTHREADS; i++) {
+        printf("array k thred id %d\n", kthread_index[i]);
+
+        if(ktid == kthread_index[i])
+            return i;
+    }
+    printf("Debug: get_ktid_index not found\n");
+    exit(1);
+    return -1;  // ERROR
+}
+
+void handle_pending_signals() {
+    int curr_kthread_index = get_curr_kthread_index();
+    
+    // if currently no thread is executing on current kernel thread
+    if (! curr_running_proc_array[curr_kthread_index])
+        return;
+
+    ualarm(0,0);
+    node* curr_thread = curr_running_proc_array[curr_kthread_index];
+    int k = curr_thread->sig_info->rem_sig_cnt;
+    printf("total pending signals %d\n", k);
+    sigset_t signal_list;
+    for (int i = 0; i < k; i++) {
+        int signal_to_handle = curr_thread->sig_info->signal_list->t_signal;
+        printf("handle pending signal %d of %ld tid\n", signal_to_handle, curr_thread->tid);
+        sigaddset(&signal_list, signal_to_handle);
+        sigprocmask(SIG_UNBLOCK, &signal_list, NULL);
+        // printf("ss = %d\n",  curr_thread->sig_info->arr[curr_thread->sig_info->rem_sig_cnt - 1]);
+        curr_thread->sig_info->rem_sig_cnt--;
+        curr_thread->sig_info->signal_list = curr_thread->sig_info->signal_list->next;
+        // printf("ps = %d\n", curr_running_proc->sig_info->rem_sig_cnt);
+        raise(signal_to_handle);
+        // kill(getpid(), --curr_running_proc->sig_info->arr[curr_running_proc->sig_info->rem_sig_cnt]);
+    }
+    ualarm(ALARM_TIME,0);
+    enable_alarm_signal();
+    printf("kk %d\n",  curr_thread->sig_info->rem_sig_cnt);
+}
 
 // setjump returns 0 for the first time, next time it returns value used in longjump(here 2) 
 // so switch to scheduler will execute only once.
@@ -123,7 +164,6 @@ void signal_handler_alarm() {
     ualarm(0,0);
     alarm_index = (alarm_index + 1) % NO_OF_KTHREADS;
 	syscall(SYS_tgkill, getpid(), kthread_index[alarm_index], SIGVTALRM);
-    
     return;
 }
 
@@ -139,6 +179,7 @@ void signal_handler_vtalarm() {
     if(! value) {
         siglongjmp(*(scheduler_node_array[get_curr_kthread_index()].t_context), 2);
     }
+    handle_pending_signals();
     return;
 }
 
@@ -184,33 +225,28 @@ int execute_me_mo() {
 	return 0;
 }
 
-void insert_sig_node(sig_node **head, sig_node *node) {
-    node->next = *head;
-    *head = node;
+void insert_sig_node(signal_info *info, sig_node *node) {
+    node->next = info->signal_list;
+    info->signal_list = node;
 }
 
-/*
-void search_thread(int *ktid, node **t_node, thread_id tid) {
-    node *n = *t_node;
+node* search_thread(thread_id tid) {
+
+    node n;
     int found_flag = 0;
 
-	for(int i=0; i<NO_OF_KTHREADS; i++){
-        n = thread_list[i];
-        while(n) {
-            if(n->tid == tid){
-                found_flag = 1;
-                break;
-            }
-            n = n->next;
-        }
-        if(found_flag) {
-            **t_node = *n;
-            return;
-        }
+    node *tmp = thread_list;
+    while(tmp && tmp->tid != tid)
+        tmp = tmp->next;
+
+    if(! tmp) {
+        // error condition
+        printf("Debug: thread not found error. exiting\n");
+        exit(1);
     }
-    return;
+	return tmp;
 }
-*/
+
 
 
 // insert thread_id node in beginning of list
@@ -225,16 +261,16 @@ void scheduler() {
     while(1) {
         // printf("inside scheduler\n");
         // traverse();
-// exit(1);
+        // exit(1);
         int index = get_curr_kthread_index();
-//   printf("inside scheduler2 %d \n", index);
+        //   printf("inside scheduler2 %d \n", index);
 
         node* curr_running_proc = curr_running_proc_array[index];
         // printf("inside scheduler\n");
 
         if(curr_running_proc->state == THREAD_RUNNING)
             curr_running_proc->state = THREAD_RUNNABLE;
-//   printf("inside scheduler2\n");
+        // printf("inside scheduler2\n");
             
         // point next_proc to next thread of currently running process
         node *next_proc = curr_running_proc->next;
@@ -302,30 +338,43 @@ void init_many_many() {     // TODO call only once in therad_create
     // ualarm(K_ALARM_TIME, 0);
 }
 
+thread_id get_kthread_index_from_tid(thread_id tid) {
+    node *tmp = thread_list;
+    traverse();
+    exit(1);
+    while(tmp && tmp->tid != tid)
+        tmp = tmp->next;
+    thread_id ktid = tmp->kernel_tid;
+    printf("finding kthreadid from tid %ld\n",ktid );
 
-// void thread_kill(mThread thread, int signal){
-//     ualarm(0,0);
-//     if (signal == SIGINT || signal == SIGCONT || signal == SIGSTOP)
-//         kill(getpid(), signal);
-//     else {
-//         if(curr_running_proc_array[get_curr_kthread_index()]->tid == thread)
-//             raise(signal);
-//         else {
-//             node* n = (node *)malloc(sizeof(node)); // redundant
-//             sig_node *signal_node = (sig_node*)malloc(sizeof(sig_node));
-//             signal_node->t_signal = signal;
-//             int ktid;
-//             search_thread(&ktid, &n, thread);
+    return get_kthread_index(ktid);
+}
 
-//             // if((n->sig_info->rem_sig_cnt == n->sig_info->arr_size))
-//             //     n->sig_info->arr = realloc(n->sig_info->arr, 2*n->sig_info->arr_size);
-//             insert_sig_node(&(n->sig_info->signal_list), signal_node);
-//             n->sig_info->rem_sig_cnt++;
-//             printf("inside thread kill %d %d\n", n->sig_info->signal_list->t_signal, signal);
-//         }
-//     }
-//     ualarm(ALARM_TIME, 0);
-// }
+void thread_kill(mThread thread, int signal){
+    ualarm(0,0);
+    if (signal == SIGINT || signal == SIGCONT || signal == SIGSTOP)
+        kill(getpid(), signal);
+    else {
+
+        int curr_kthread_index = get_curr_kthread_index();
+
+        if(curr_kthread_index != -1 && curr_running_proc_array[curr_kthread_index]->tid == thread)
+            raise(signal);
+        else {
+            node* n = (node *)malloc(sizeof(node)); // redundant
+            sig_node *signal_node = (sig_node*)malloc(sizeof(sig_node));
+            signal_node->t_signal = signal;
+            int ktid;
+            n = search_thread(thread);
+            // printf("adding signal node in %ld tid node having %d ktid\n", n->tid, n->kthread_index);
+
+            insert_sig_node(n->sig_info, signal_node);
+            n->sig_info->rem_sig_cnt++;
+            printf("inside thread kill %d %d\n", n->sig_info->signal_list->t_signal, signal);
+        }
+    }
+    ualarm(ALARM_TIME, 0);
+}
 
 
 int thread_create(mThread *thread, void *attr, void *routine, void *args) {
@@ -347,6 +396,10 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 	mprotect(t_node->stack_start, GUARD_PAGE_SIZE, PROT_NONE);
     t_node->stack_size = DEFAULT_STACK_SIZE;      // not required
     t_node->wrapper_fun = info;  // not required
+
+    t_node->sig_info = (signal_info*)malloc(sizeof(signal_info));
+    t_node->sig_info->signal_list = NULL;
+    t_node->sig_info->rem_sig_cnt = 0;
     
     
 
@@ -476,6 +529,10 @@ int main() {
     thread_create(&t2, NULL, f2, NULL);
     thread_create(&t3, NULL, f3, NULL);
     thread_create(&t4, NULL, f4, NULL);
+
+    // exit(1);
+    printf("giving signal to thread id %ld", t4);
+    thread_kill(t4, SIGUSR1);
 
     void **a;
     // printf("%ld\n", tm);

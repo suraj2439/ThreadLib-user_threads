@@ -93,8 +93,7 @@ void enable_alarm_signal() {
     sigprocmask(SIG_UNBLOCK, &signalList, NULL);
 }
 
-void handle_pending_signals()
-{
+void handle_pending_signals() {
     if (!curr_running_proc)
         return;
     ualarm(0,0);
@@ -111,7 +110,6 @@ void handle_pending_signals()
         // kill(getpid(), --curr_running_proc->sig_info->arr[curr_running_proc->sig_info->rem_sig_cnt]);
     }
     ualarm(ALARM_TIME,0);
-
     enable_alarm_signal();
     printf("kk %d\n",  curr_running_proc->sig_info->rem_sig_cnt);
 }
@@ -281,8 +279,7 @@ void thread_kill(mThread thread, int signal){
     ualarm(0,0);
     if (signal == SIGINT || signal == SIGCONT || signal == SIGSTOP)
         kill(getpid(), signal);
-    else
-    {
+    else {
         if(curr_running_proc->tid == thread)
             raise(signal);
         else{
