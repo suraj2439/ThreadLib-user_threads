@@ -486,7 +486,6 @@ void f4() {
 }
 
 
-/*
 int main() {
     mThread t1,t2,t3,t4;
     // printf("pam = %p\n", f1);
@@ -518,4 +517,3 @@ int main() {
     }
     return 0;
 }
-*/
