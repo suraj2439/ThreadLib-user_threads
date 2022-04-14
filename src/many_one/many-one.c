@@ -8,51 +8,14 @@
 #include <setjmp.h>
 #include <sys/mman.h>
 #include <signal.h>
+#include "many-one.h"
 
-#define INVAL_INP	10
-#define DEFAULT_STACK_SIZE	32768
-#define THREAD_RUNNING 20
-#define THREAD_TERMINATED 21
-#define THREAD_RUNNABLE 22
-#define NO_THREAD_FOUND 22
-#define GUARD_PAGE_SIZE	4096
-#define ALARM_TIME 100000  // in microseconds 
-#define DEFAULT_SIGNAL_ARRAY_LENGTH 10
-
-
-typedef unsigned long int thread_id;
-typedef unsigned long int mThread;
-
-
-typedef struct wrap_fun_info {
-	void (*fun)(void *);
-	void *args;
-	mThread *thread;
-} wrap_fun_info;
-
-
-typedef struct signal_info {
-    int* arr;
-    int arr_size;
-    int rem_sig_cnt;
-} signal_info;
-
-typedef struct node {
-	thread_id tid;
-	int stack_size;
-	void *stack_start;
-	wrap_fun_info* wrapper_fun;
-    signal_info* sig_info;
-	int state;
-	void* ret_val;
-    jmp_buf *t_context;      // use to store thread specific context
-    struct node* next;
-} node;
+#define MMAP_FAILED		11
+#define SYSCALL_ERROR	13
 
 typedef node* node_list;
 
 void scheduler();
-
 
 // global tid table to store thread ids 
 // of current running therads
@@ -235,7 +198,9 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
     t_node->t_context = (jmp_buf*) malloc(sizeof(jmp_buf));
     t_node->ret_val = 0;         // not required
     t_node->stack_start = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
-	mprotect(t_node->stack_start, GUARD_PAGE_SIZE, PROT_NONE);
+	if(t_node->stack_start == MAP_FAILED)
+		return MMAP_FAILED;
+    mprotect(t_node->stack_start, GUARD_PAGE_SIZE, PROT_NONE);
     t_node->stack_size = DEFAULT_STACK_SIZE;      // not required
 
     t_node->sig_info = (signal_info*)malloc(sizeof(signal_info));
@@ -275,7 +240,7 @@ int thread_join(mThread tid, void **retval) {
 }
 
 
-void thread_kill(mThread thread, int signal){
+int thread_kill(mThread thread, int signal){
     ualarm(0,0);
     if (signal == SIGINT || signal == SIGCONT || signal == SIGSTOP)
         kill(getpid(), signal);
@@ -287,16 +252,15 @@ void thread_kill(mThread thread, int signal){
 
             while(n && n->tid != thread){
                 n = n->next;
-                if(n==NULL)
-                    return;
+                if(n == NULL)
+                    return -1;  // TODO return error no
             }
-            // if((n->sig_info->rem_sig_cnt == n->sig_info->arr_size))
-            //     n->sig_info->arr = realloc(n->sig_info->arr, 2*n->sig_info->arr_size);
             n->sig_info->arr[n->sig_info->rem_sig_cnt++] = signal;
             printf("inside thread kill %d %d\n", n->sig_info->arr[n->sig_info->rem_sig_cnt - 1], signal);
         }
     }
     ualarm(ALARM_TIME, 0);
+    return 0;
 }
 
 
@@ -335,6 +299,7 @@ void f3() {
     }
 }
 
+/*
 int main() {
     mThread td;
 	mThread tt, tm;
@@ -364,3 +329,4 @@ int main() {
     }
     return 0;
 }
+*/

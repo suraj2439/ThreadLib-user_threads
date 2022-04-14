@@ -1,0 +1,5 @@
+
+
+cc -c one-one.c many-one.c many-many.c
+cc one-one.o many-one.o many-many.o
+./a.out

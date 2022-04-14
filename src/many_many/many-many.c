@@ -8,53 +8,12 @@
 #include <setjmp.h>
 #include <sys/mman.h>
 #include <signal.h>
+#include "many-many.h"
 
-#define INVAL_INP	10
-#define DEFAULT_STACK_SIZE	32768
-#define THREAD_RUNNING 20
-#define THREAD_TERMINATED 21
-#define THREAD_RUNNABLE 22
-#define NO_THREAD_FOUND 23
-#define GUARD_PAGE_SIZE	4096
-#define ALARM_TIME 100000  // in microseconds 
-#define NO_OF_KTHREADS 2
-#define K_ALARM_TIME    (ALARM_TIME / NO_OF_KTHREADS)
-#define CLONE_FLAGS     CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD |CLONE_SYSVSEM|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID
-
-typedef unsigned long int thread_id;
-typedef unsigned long int mThread;
-
-
-typedef struct sig_node {
-    int t_signal;
-    struct sig_node *next;
-} sig_node;
-
-typedef struct signal_info {
-    sig_node *signal_list;
-    int rem_sig_cnt;
-} signal_info;
-
-
-typedef struct wrap_fun_info {
-	void (*fun)(void *);
-	void *args;
-	mThread *thread;
-} wrap_fun_info;
-
-typedef struct node {
-	thread_id tid;
-    thread_id kernel_tid;
-    int kthread_index;      // use to locate the particular kernel thread in which the node belong
-	int stack_size;
-	void *stack_start;
-	wrap_fun_info* wrapper_fun;
-    signal_info *sig_info;
-	int state;
-	void* ret_val;
-    jmp_buf *t_context;      // use to store thread specific context
-    struct node* next;
-} node;
+#define MMAP_FAILED		11
+#define CLONE_FAILED	12
+#define SYSCALL_ERROR	13
+#define RAISE_ERROR     14
 
 typedef node* node_list;
 node_list thread_list = NULL;
@@ -350,7 +309,7 @@ thread_id get_kthread_index_from_tid(thread_id tid) {
     return get_kthread_index(ktid);
 }
 
-void thread_kill(mThread thread, int signal){
+int thread_kill(mThread thread, int signal){
     ualarm(0,0);
     if (signal == SIGINT || signal == SIGCONT || signal == SIGSTOP)
         kill(getpid(), signal);
@@ -358,8 +317,11 @@ void thread_kill(mThread thread, int signal){
 
         int curr_kthread_index = get_curr_kthread_index();
 
-        if(curr_kthread_index != -1 && curr_running_proc_array[curr_kthread_index]->tid == thread)
-            raise(signal);
+        if(curr_kthread_index != -1 && curr_running_proc_array[curr_kthread_index]->tid == thread) {
+            int val = raise(signal);
+            if(val == -1)
+		        return RAISE_ERROR;
+        }
         else {
             node* n = (node *)malloc(sizeof(node)); // redundant
             sig_node *signal_node = (sig_node*)malloc(sizeof(sig_node));
@@ -393,7 +355,9 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
     t_node->t_context = (jmp_buf*) malloc(sizeof(jmp_buf));
     t_node->ret_val = 0;         // not required
     t_node->stack_start = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
-	mprotect(t_node->stack_start, GUARD_PAGE_SIZE, PROT_NONE);
+	if(t_node->stack_start == MAP_FAILED)
+		return MMAP_FAILED;
+    mprotect(t_node->stack_start, GUARD_PAGE_SIZE, PROT_NONE);
     t_node->stack_size = DEFAULT_STACK_SIZE;      // not required
     t_node->wrapper_fun = info;  // not required
 
@@ -402,13 +366,14 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
     t_node->sig_info->rem_sig_cnt = 0;
     
     
-
     if(t_node->tid < NO_OF_KTHREADS) {
         // printf("clone called\n");
         thread_insert(t_node);
         curr_running_proc_array[t_node->tid] = t_node;
         // kthread_index[t_node->tid] = t_node;
         kthread_index[t_node->tid] = clone(execute_me_oo, t_node->stack_start + DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE, CLONE_FLAGS, (void *)t_node);	
+        if(kthread_index[t_node->tid] == -1) 
+		    return CLONE_FAILED;
         return 0;
     }
     else {
@@ -520,6 +485,8 @@ void f4() {
     }
 }
 
+
+/*
 int main() {
     mThread t1,t2,t3,t4;
     // printf("pam = %p\n", f1);
@@ -551,3 +518,4 @@ int main() {
     }
     return 0;
 }
+*/
