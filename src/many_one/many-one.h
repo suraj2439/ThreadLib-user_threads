@@ -17,6 +17,7 @@
 typedef unsigned long int thread_id;
 typedef unsigned long int mThread;
 
+#include "lock.h"
 
 typedef struct wrap_fun_info {
 	void (*fun)(void *);
@@ -43,6 +44,11 @@ typedef struct node {
     struct node* next;
 } node;
 
+
+typedef struct tid_list{
+	node* list;
+	spinlock lock;
+} tid_list;
 
 // The  thread_create() function starts a new thread in the calling process.  The new thread starts execution by invoking routine(); 
 // arg is passed as the sole argument of routine().
