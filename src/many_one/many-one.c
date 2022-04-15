@@ -310,6 +310,10 @@ void thread_exit(void *retval) {
 	// syscall(SYS_exit, EXIT_SUCCESS);
 }
 
+void init_thread_lock(struct spinlock *lk){
+    initlock(lk);
+}
+
 void thread_lock(struct spinlock *lk){
     acquire(lk);
 }
