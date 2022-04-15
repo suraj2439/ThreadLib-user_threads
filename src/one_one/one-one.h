@@ -3,6 +3,7 @@
 
 #define INVAL_INP	10
 #define DEFAULT_STACK_SIZE	32768
+#define THREAD_SLEEPING 19
 #define THREAD_RUNNING 20
 #define THREAD_TERMINATED 21
 #define NO_THREAD_FOUND 22
@@ -61,5 +62,8 @@ void init_thread_lock(struct spinlock *lk);
 void thread_lock(struct spinlock *lk);
 void thread_unlock(struct spinlock *lk);
 
+void init_mutex_thread_lock(struct sleeplock *lk);
+void thread_mutex_lock(struct sleeplock *lk);
+void thread_mutex_unlock(struct sleeplock *lk);
 
 #endif

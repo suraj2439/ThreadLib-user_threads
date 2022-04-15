@@ -349,15 +349,60 @@ void f3() {
     }
 }
 
+sleeplock test;
+int c = 0;
+void myFun() {
+	printf("inside 1st fun.\n");
+	// sleep(3);
+	// printf("above sleep\n");
+	// void *t;
+	// thread_exit(t);
+	// printf("below sleep\n");
+	
+	int c1;
+	while(1){
+	    printf("inside 1st fun.\n");
+		acquiresleep(&test);
+		c++;
+		c1++;
+		releasesleep(&test);
+		if(c1>10)
+			break;
+	}
+    sleep(1);
+
+	printf("inside 2nd fun c1  = %d\n", c1);
+
+}
+
+void myF() {
+	// sleep(3);
+	printf("inside 2nd fun\n");
+	int c2 = 0;
+	while(1){
+	    printf("inside 2nd fun\n");
+		acquiresleep(&test);
+		c++;
+		c2++;
+		releasesleep(&test);
+        sleep(1);
+    	if(c2>20)
+			break;
+	}
+	printf("inside 2nd fun c2  = %d\n", c2);
+
+}
+
 
 int main() {
+    initsleeplock(&test);
     mThread td;
 	mThread tt, tm;
 
 	// init_many_one(); 
 
-	thread_create(&td, NULL, f1, NULL);
-    thread_create(&tt, NULL, f2, NULL);
+	thread_create(&td, NULL, myF, NULL);
+    thread_create(&tt, NULL, myFun, NULL);
     // thread_create(&tm, NULL, f3, NULL);
     // signal(SIGVTALRM, signal_handler_vtalarm);
 
@@ -367,11 +412,12 @@ int main() {
 	
     // node* t = thread_list.list;
     
-    // void **a;
+    void **a;
     // printf("%ld\n", tm);
     // exit(1);
-    // thread_join(tm, a);
+    thread_join(td, a);
     printf("join success");
+    printf("c=%d\n", c);
     // traverse();
     // return 0;
     // sleep(1);
@@ -383,8 +429,8 @@ int main() {
 
 
     while(1){
-        sleep(1);
-	    printf("inside main fun.\n");
+        // sleep(1);
+	    // printf("inside main fun.\n");
     }
     return 0;
 }

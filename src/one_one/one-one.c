@@ -17,7 +17,7 @@
 tid_list tid_table;
 
 int c;
-spinlock test;
+sleeplock test;
 
 // insert thread_id node in beginning of list
 int tid_insert(node* nn, thread_id tid, int stack_size, void *stack_start) {
@@ -150,6 +150,20 @@ void thread_unlock(struct spinlock *lk){
     release(lk);
 }
 
+void init_mutex_thread_lock(struct sleeplock *lk){
+    initsleeplock(lk);
+}
+
+void thread_mutex_lock(struct sleeplock *lk){
+    acquiresleep(lk);
+}
+
+void thread_mutex_unlock(struct sleeplock *lk){
+    releasesleep(lk);
+}
+
+
+
 void myFun() {
 	printf("inside 1st fun.\n");
 	// sleep(3);
@@ -160,10 +174,10 @@ void myFun() {
 	
 	int c1;
 	while(1){
-		acquire(&test);
+		acquiresleep(&test);
 		c++;
 		c1++;
-		release(&test);
+		releasesleep(&test);
 		if(c1>1000000)
 			break;
 	}
@@ -176,10 +190,10 @@ void myF() {
 	printf("inside 2nd fun\n");
 	int c2 = 0;
 	while(1){
-		acquire(&test);
+		acquiresleep(&test);
 		c++;
 		c2++;
-		release(&test);
+		releasesleep(&test);
 		if(c2>1000000)
 			break;
 	}
@@ -192,42 +206,49 @@ void signal_handler() {
 }
 
 
-// int main() {
-// 	mThread td;
-// 	mThread tt;
-// 	// init_threading();
-// 	signal(SIGALRM, signal_handler);
-// 	int a = 4;
-// 	thread_create(&td, NULL, myFun, (void*)&a);
-// 	// thread_create(&tt, NULL, myF, NULL);
-// 	printf("sending signal to %ld\n", td);
-// 	// thread_kill(td, SIGALRM);
-// 	// thread_kill(td, 12);	
-// 	while(1) {
-// 		printf("in main \n");
-// 		sleep(1);
-// 	}
-// 		printf("in main \n");
-// 	sleep(6);
-// 		printf("in main \n");
+int main() {
+	mThread td;
+	mThread tt;
+	// init_threading();
+	signal(SIGALRM, signal_handler);
+	// int a = 4;
+	initsleeplock(&test);
+	thread_create(&td, NULL, myFun, NULL);
+	thread_create(&tt, NULL, myF, NULL);
+	printf("t1 = %ld, t2 = %ld\n", td, tt);
+	// thread_kill(td, SIGALRM);
+	// thread_kill(td, 12);	
+
+	void **a;
+	thread_join(tt, a);
+	thread_join(td, a);
+	printf("total c  = %d\n", c);
+	while(1) {
+		printf("in main \n");
+		sleep(1);
+	}
+		printf("in main \n");
+	sleep(6);
+		printf("in main \n");
 
 	
-// 	// thread_create(&tt, NULL, myF, NULL);
-// 	// printf("bfr join.\n");
-// 	// void **a;
-// 	// thread_join(td, a);
-// 	// printf("maftr join\n");
-// 	// sleep(1);
-// 	// printf("bfr join1.\n");
-// 	// thread_join(tt, a);
-// 	// printf("maftr join2\n");
-// 	// //printf("%ld\n", tid_table->next->tid);
+	// thread_create(&tt, NULL, myF, NULL);
+	// printf("bfr join.\n");
+	// thread_join(td, a);
+	// printf("maftr join\n");
+	// sleep(1);
+	// printf("bfr join1.\n");
+	// thread_join(tt, a);
+	// thread_join(td, a);
+	// printf("total c  = %d\n", c);
+	// printf("maftr join2\n");
+	// //printf("%ld\n", tid_table->next->tid);
 
-// 	// node *tmp = tid_table;
-// 	// while(tmp) {
-// 	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
-// 	// 	tmp = tmp->next;
-// 	// }
-// 	return 0;
-// }
+	// node *tmp = tid_table;
+	// while(tmp) {
+	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
+	// 	tmp = tmp->next;
+	// }
+	return 0;
+}
 

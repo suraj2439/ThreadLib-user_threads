@@ -5,12 +5,13 @@
 
 #define INVAL_INP	10
 #define DEFAULT_STACK_SIZE	32768
+#define THREAD_SLEEPING 19
 #define THREAD_RUNNING 20
 #define THREAD_TERMINATED 21
 #define THREAD_RUNNABLE 22
 #define NO_THREAD_FOUND 22
 #define GUARD_PAGE_SIZE	4096
-#define ALARM_TIME 100000  // in microseconds 
+#define ALARM_TIME 100  // in microseconds 
 #define DEFAULT_SIGNAL_ARRAY_LENGTH 10
 
 
@@ -42,6 +43,7 @@ typedef struct node {
 	void* ret_val;
     jmp_buf *t_context;      // use to store thread specific context
     struct node* next;
+	void* chan;
 } node;
 
 
