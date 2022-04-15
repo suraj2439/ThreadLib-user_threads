@@ -8,6 +8,10 @@
 #define NO_THREAD_FOUND 22
 #define GUARD_PAGE_SIZE	4096
 
+#define MMAP_FAILED		11
+#define CLONE_FAILED	12
+#define INVALID_SIGNAL	13
+
 typedef unsigned long int thread_id;
 typedef unsigned long int mThread;
 
@@ -27,6 +31,8 @@ typedef struct node {
 	int state;
 	void* ret_val;
 } node;
+
+typedef node* tid_list;
 
 void init_threading();  // TODO remove this
 

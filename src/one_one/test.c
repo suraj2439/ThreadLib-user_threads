@@ -1,6 +1,20 @@
+#define _GNU_SOURCE
+#include <unistd.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <signal.h>
+#include <stdlib.h>
 #include "one-one.h"
+
+#define TEST_SUCCESS    printf("Test Passed.\n");
+#define TEST_FAILURE    printf("Test Failed.\n");
+
+void line() {
+    printf("\n");
+    for(int i = 0; i < 100; i++) 
+        printf("-");
+    printf("\n");
+}
 
 void emptyfun() {
 }
@@ -37,8 +51,7 @@ void thread_create_test() {
     printf("thread_create() test result: \nsuccess : %d\nfailure : %d\n", success, failure);
 }
 
-void testJoin()
-{
+void thread_join_test() {
     int success = 0;
     int failure = 0;
     int s = 0, f = 0;
@@ -74,11 +87,149 @@ void testJoin()
     return;
 }
 
+void testSig() {
+    int success = 0;
+    int failure = 0;
 
+    printf("Testing thread_kill()\n\n");
+    mThread t1, t2, t3;
+    printf("Sending a signal to a running thread\n");
+    thread_create(&t1, NULL, f1, NULL);
+    sleep(1);
+    int ret = thread_kill(t1, SIGVTALRM);
+    thread_join(t1, NULL);
+    if (ret != -1) {
+        TEST_SUCCESS
+        success += 1;
+    }
+    else {
+        TEST_FAILURE
+        failure += 1;
+    }
+
+    printf("\nSending a signal to an already exited thread\n");
+    thread_create(&t2, NULL, f1, NULL);
+    thread_join(t2, NULL);
+    ret = thread_kill(t2, SIGTERM);
+    if (ret == -1) {
+        TEST_SUCCESS
+        success += 1;
+    }
+    else {
+        TEST_FAILURE
+        failure += 1;
+    }
+
+    printf("\nSending a process wide signal\n");
+    thread_create(&t3, NULL, f1, NULL);
+    thread_join(t3, NULL);
+    ret = thread_kill(t3, SIGVTALRM);
+    if (ret == -1)
+        failure += 1;
+}
+
+
+void fexit() {
+    int *tid = (int *)malloc(sizeof(int));
+    *tid = gettid();
+    printf("Exiting thread 1 with value %d\n", *(int *)tid);
+    thread_exit(tid);
+}
+
+void thread_exit_test() {
+    int *retVal1 = (int *)malloc(sizeof(int));
+    int *retVal2 = (int *)malloc(sizeof(int));
+    printf("Testing thread_exit()\n\n");
+    mThread t1, t2;
+    int *retVal = (int *)malloc(sizeof(int));
+    thread_create(&t1, NULL, fexit, NULL);
+    thread_create(&t2, NULL, fexit, NULL);
+    thread_join(t1, (void **)&retVal1);
+    thread_join(t2, (void **)&retVal2);
+    printf("Joined thread 1 exit value : %d\n", *(retVal1));
+    printf("Joined thread 2 exit value : %d\n", *(retVal2));
+    TEST_SUCCESS
+}
+
+void farg(void *arg) {
+    int *ret = (int *)malloc(sizeof(int));
+    int *a = (int*)arg;
+    printf("Argument received is : %d\n", *a);
+    if(*a == 100)
+        *ret = 1;
+    else *ret = 0;
+    thread_exit(ret);
+}
+
+void thread_funArgs_test() {
+    printf("Testing Function Arguments of thread.\n\n");
+    printf("Passing argument as 100 to function.\n");
+    mThread t1;
+    int a = 100;
+    thread_create(&t1, NULL, farg, (void*)&a);
+    int *retVal = (int *)malloc(sizeof(int));
+    thread_join(t1,  (void **)&retVal);
+    if(*retVal) TEST_SUCCESS
+    else TEST_FAILURE
+}
+
+
+void thread_create_robust() {
+    mThread t;
+    printf("Creating threads with invalid arguments\n");
+    if (thread_create(NULL, NULL, NULL, NULL) == INVAL_INP && thread_create(&t, NULL, NULL, NULL) == INVAL_INP && thread_create(NULL, NULL, f1, NULL) == INVAL_INP)
+        TEST_SUCCESS
+    else TEST_FAILURE
+}
+
+void thread_join_robust() {
+    printf("Joining random thread(thread already joined/random tid/thread rejoin).\n");
+    mThread t;
+    void **tmp;
+    if(thread_join(t, tmp) == NO_THREAD_FOUND)
+        TEST_SUCCESS
+    else TEST_FAILURE
+
+    // thread_create(&t, NULL, f1, NULL);
+}
+
+void thread_kill_robust() {
+    printf("Sending 1) Invalid Signal and 2) Invalid tid \n");
+    mThread t;
+    if (thread_kill(t, 0) == INVALID_SIGNAL && thread_kill(t, SIGINT) == INVALID_SIGNAL) TEST_SUCCESS
+    else TEST_FAILURE
+}
+
+void unitTesting() {
+    line();
+    printf("PERFORMING UNIT TESTING TO CHECK BASIC FEATURES.\n");
+    line();
+    thread_create_test();
+    line();
+    thread_join_test();
+    line();
+    // TODO attribute test 
+    // testSig();      // TODO handle thread specific signal
+    thread_exit_test();
+    line();
+    thread_funArgs_test();
+    line();
+}
+
+void robustTesting() {
+    line();
+    printf("PERFORMING ROBUST TESTING TO CHECK RELIABILITY.\n");
+    line();
+    thread_create_robust();
+    line();
+    thread_join_robust();
+    line();
+    thread_kill_robust();
+    line();
+}
 
 int main() {
     mThread t1, t2, t3, t4, t5;
-    init_threading();
     // thread_create(&t1, NULL, join_fun, NULL);
     // thread_create(&t2, NULL, join_fun, NULL);
     // thread_create(&t3, NULL, join_fun, NULL);
@@ -95,8 +246,9 @@ int main() {
     // thread_join(t4, t);
     // printf("join done\n");
 
-    thread_create_test();
-    testJoin();
+    unitTesting();
+    robustTesting();
+
 
     while(1) {
         // printf("in main\n");

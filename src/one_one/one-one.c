@@ -11,12 +11,6 @@
 #include <signal.h>
 #include "one-one.h"
 
-#define MMAP_FAILED		11
-#define CLONE_FAILED	12
-#define SYSCALL_ERROR	13
-
-typedef node* tid_list;
-
 // global tid table to store thread ids 
 // of current running therads
 tid_list tid_table;
@@ -28,9 +22,10 @@ int tid_insert(node* nn, thread_id tid, int stack_size, void *stack_start) {
 	nn->stack_size = stack_size;
 	nn->stack_start = stack_start;
 	nn->next = NULL;
-
+	//acquire
 	nn->next = tid_table;
 	tid_table = nn;
+	//release
 }
 
 void init_threading() {
@@ -51,9 +46,11 @@ int thread_join(mThread tid, void **retval) {	// TODO **retval with NULL value
 	if(!retval)
 		return INVAL_INP;
 	node* n = tid_table;
+	//acquire
 
 	while(n && n->tid!=tid)
 		n = n->next;
+	//release
 
 	if(!n)
 		return NO_THREAD_FOUND;
@@ -62,16 +59,19 @@ int thread_join(mThread tid, void **retval) {	// TODO **retval with NULL value
 		;
 
 	*retval = n->ret_val;
+	//acquire
+	//remove thread from queue
+	//release
 	return 0;
 }
 
 void thread_exit(void *retval) {
 	thread_id curr_tid = (thread_id)gettid();
 	node *n = tid_table;
-
+	//acquire
 	while(n && n->tid != curr_tid)
 		n = n->next;
-	
+	//release
 	if(!n ) return;
 
 	// free(n->wrapper_fun); 	TODO
@@ -82,10 +82,11 @@ void thread_exit(void *retval) {
 }
 
 int thread_kill(mThread thread, int signal) {
+	if(!signal ) return INVALID_SIGNAL;
 	int process_id = getpid();
 	int val = syscall(SYS_tgkill, process_id, thread, signal);
 	if(val == -1)
-		return SYSCALL_ERROR;
+		return INVALID_SIGNAL;
 	return 0;
 }
 
@@ -122,7 +123,9 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 	return 0;
 }
 
-void myFun() {
+void myFun(void *args) {
+	int *a = (int*)args;
+	printf("a = %d\n", *a);
 	printf("inside 1st fun.\n");
 	sleep(3);
 	printf("above sleep\n");
@@ -141,43 +144,42 @@ void signal_handler() {
 }
 
 
-/*
-int main() {
-	mThread td;
-	mThread tt;
-	// init_threading();
-	signal(SIGALRM, signal_handler);
-	thread_create(&td, NULL, myFun, NULL);
-	thread_create(&tt, NULL, myF, NULL);
-	printf("sending signal to %ld\n", td);
-	// thread_kill(td, SIGALRM);
-	// thread_kill(td, 12);	
-	while(1) {
-		printf("in main \n");
-		sleep(1);
-	}
-		printf("in main \n");
-	sleep(6);
-		printf("in main \n");
+// int main() {
+// 	mThread td;
+// 	mThread tt;
+// 	// init_threading();
+// 	signal(SIGALRM, signal_handler);
+// 	int a = 4;
+// 	thread_create(&td, NULL, myFun, (void*)&a);
+// 	// thread_create(&tt, NULL, myF, NULL);
+// 	printf("sending signal to %ld\n", td);
+// 	// thread_kill(td, SIGALRM);
+// 	// thread_kill(td, 12);	
+// 	while(1) {
+// 		printf("in main \n");
+// 		sleep(1);
+// 	}
+// 		printf("in main \n");
+// 	sleep(6);
+// 		printf("in main \n");
 
 	
-	// thread_create(&tt, NULL, myF, NULL);
-	// printf("bfr join.\n");
-	// void **a;
-	// thread_join(td, a);
-	// printf("maftr join\n");
-	// sleep(1);
-	// printf("bfr join1.\n");
-	// thread_join(tt, a);
-	// printf("maftr join2\n");
-	// //printf("%ld\n", tid_table->next->tid);
+// 	// thread_create(&tt, NULL, myF, NULL);
+// 	// printf("bfr join.\n");
+// 	// void **a;
+// 	// thread_join(td, a);
+// 	// printf("maftr join\n");
+// 	// sleep(1);
+// 	// printf("bfr join1.\n");
+// 	// thread_join(tt, a);
+// 	// printf("maftr join2\n");
+// 	// //printf("%ld\n", tid_table->next->tid);
 
-	// node *tmp = tid_table;
-	// while(tmp) {
-	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
-	// 	tmp = tmp->next;
-	// }
-	return 0;
-}
+// 	// node *tmp = tid_table;
+// 	// while(tmp) {
+// 	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
+// 	// 	tmp = tmp->next;
+// 	// }
+// 	return 0;
+// }
 
-*/
