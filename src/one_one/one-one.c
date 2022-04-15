@@ -10,10 +10,14 @@
 #include <sys/mman.h>
 #include <signal.h>
 #include "one-one.h"
+#include "lock.h"
 
 // global tid table to store thread ids 
 // of current running therads
 tid_list tid_table;
+
+int c;
+spinlock test;
 
 // insert thread_id node in beginning of list
 int tid_insert(node* nn, thread_id tid, int stack_size, void *stack_start) {
@@ -22,14 +26,19 @@ int tid_insert(node* nn, thread_id tid, int stack_size, void *stack_start) {
 	nn->stack_size = stack_size;
 	nn->stack_start = stack_start;
 	nn->next = NULL;
-	//acquire
-	nn->next = tid_table;
-	tid_table = nn;
-	//release
+
+	acquire(&tid_table.lock);
+	nn->next = tid_table.list;
+	tid_table.list = nn;
+	release(&tid_table.lock);
+
 }
 
 void init_threading() {
-	tid_table = NULL;
+	acquire(&tid_table.lock);
+	tid_table.list = NULL;
+	release(&tid_table.lock);
+
 }
 
 int execute_me(void *new_node) {
@@ -45,12 +54,14 @@ int execute_me(void *new_node) {
 int thread_join(mThread tid, void **retval) {	// TODO **retval with NULL value
 	if(!retval)
 		return INVAL_INP;
-	node* n = tid_table;
-	//acquire
+		
+	acquire(&tid_table.lock);
+
+	node* n = tid_table.list;
 
 	while(n && n->tid!=tid)
 		n = n->next;
-	//release
+	release(&tid_table.lock);
 
 	if(!n)
 		return NO_THREAD_FOUND;
@@ -67,11 +78,15 @@ int thread_join(mThread tid, void **retval) {	// TODO **retval with NULL value
 
 void thread_exit(void *retval) {
 	thread_id curr_tid = (thread_id)gettid();
-	node *n = tid_table;
-	//acquire
+	
+	acquire(&tid_table.lock);
+
+	node *n = tid_table.list;
+
 	while(n && n->tid != curr_tid)
 		n = n->next;
-	//release
+	release(&tid_table.lock);
+	
 	if(!n ) return;
 
 	// free(n->wrapper_fun); 	TODO
@@ -123,20 +138,49 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 	return 0;
 }
 
-void myFun(void *args) {
-	int *a = (int*)args;
-	printf("a = %d\n", *a);
+void thread_lock(struct spinlock *lk){
+    acquire(lk);
+}
+
+void thread_unlock(struct spinlock *lk){
+    release(lk);
+}
+
+void myFun() {
 	printf("inside 1st fun.\n");
-	sleep(3);
-	printf("above sleep\n");
-	void *t;
-	thread_exit(t);
-	printf("below sleep\n");
+	// sleep(3);
+	// printf("above sleep\n");
+	// void *t;
+	// thread_exit(t);
+	// printf("below sleep\n");
+	
+	int c1;
+	while(1){
+		acquire(&test);
+		c++;
+		c1++;
+		release(&test);
+		if(c1>1000000)
+			break;
+	}
+	printf("inside 2nd fun c1  = %d\n", c1);
+
 }
 
 void myF() {
-	sleep(3);
+	// sleep(3);
 	printf("inside 2nd fun\n");
+	int c2 = 0;
+	while(1){
+		acquire(&test);
+		c++;
+		c2++;
+		release(&test);
+		if(c2>1000000)
+			break;
+	}
+	printf("inside 2nd fun c2  = %d\n", c2);
+
 }
 
 void signal_handler() {
