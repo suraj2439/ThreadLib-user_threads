@@ -9,51 +9,31 @@
 #include <sys/mman.h>
 #include <signal.h>
 #include "many-one.h"
+#include "lock.h"
+#include "utils.h"
 
 #define MMAP_FAILED		11
 #define INVALID_SIGNAL	13
 
-typedef node* node_list;
 
 void scheduler();
 void thread_exit(void *retval);
 
 // global tid table to store thread ids 
 // of current running therads
-node_list thread_list = NULL;
+tid_list thread_list;
 
 node scheduler_node;
 node *curr_running_proc = NULL;
 
-// Code reference : https://stackoverflow.com/questions/69148708/alternative-to-mangling-jmp-buf-in-c-for-a-context-switch
-long int mangle(long int p) {
-    long int ret;
-    asm(" mov %1, %%rax;\n"
-        " xor %%fs:0x30, %%rax;"
-        " rol $0x11, %%rax;"
-        " mov %%rax, %0;"
-        : "=r"(ret)
-        : "r"(p)
-        : "%rax"
-    );
-    return ret;
-}
 
 void traverse() {
-    node *nn = thread_list;
+    node *nn = thread_list.list;
     while(nn) {
-        printf("%d %d   ", nn->state, nn->stack_size);
+        printf("%d %d  %ld ", nn->state, nn->stack_size, nn->tid);
         nn = nn->next;
     }
     printf("\n");
-}
-
-
-void enable_alarm_signal() {
-    sigset_t signalList;
-    sigfillset(&signalList);
-    sigaddset(&signalList, SIGALRM);
-    sigprocmask(SIG_UNBLOCK, &signalList, NULL);
 }
 
 void handle_pending_signals() {
@@ -131,20 +111,25 @@ int execute_me() {
 
 void scheduler() {
     while(1) {
+        disable_alarm_signal();
         // printf("inside scheduler\n");
         if(curr_running_proc->state == THREAD_RUNNING)
             curr_running_proc->state = THREAD_RUNNABLE;
             
         // point next_proc to next thread of currently running process
+        acquire(&thread_list.lock);
+
         node *next_proc = curr_running_proc->next;
-        if(! next_proc) next_proc = thread_list;
+        if(! next_proc) next_proc = thread_list.list;
 
         while(next_proc->state != THREAD_RUNNABLE) {
             if(next_proc->next) next_proc = next_proc->next;
-            else next_proc = thread_list;
+            else next_proc = thread_list.list;
         }
 
+        release(&thread_list.lock);
         curr_running_proc = next_proc;
+
 
         next_proc->state = THREAD_RUNNING;
         enable_alarm_signal();
@@ -156,8 +141,11 @@ void scheduler() {
 
 // insert thread_id node in beginning of list
 void thread_insert(node* nn) {
-	nn->next = thread_list;
-	thread_list = nn;
+
+    acquire(&thread_list.lock);
+	nn->next = thread_list.list;
+	thread_list.list = nn;
+    release(&thread_list.lock);
 }
 
  
@@ -167,6 +155,7 @@ void init_many_one() {
     scheduler_node.stack_start = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
 	mprotect(scheduler_node.stack_start, GUARD_PAGE_SIZE, PROT_NONE);
     scheduler_node.stack_size = DEFAULT_STACK_SIZE;
+    scheduler_node.tid = 0;
     scheduler_node.wrapper_fun = (wrap_fun_info*)malloc(sizeof(wrap_fun_info));
     scheduler_node.wrapper_fun->fun = scheduler;
     scheduler_node.wrapper_fun->args = NULL;
@@ -176,7 +165,7 @@ void init_many_one() {
 
     node *main_fun_node = (node *)malloc(sizeof(node));
     main_fun_node->state = THREAD_RUNNING;
-    main_fun_node->tid = 0;
+    main_fun_node->tid = 1;
     main_fun_node->t_context = (jmp_buf*) malloc(sizeof(jmp_buf));
     main_fun_node->ret_val = 0;         // not required
     main_fun_node->stack_start = NULL;  // not required
@@ -210,7 +199,7 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 
     if(! thread || ! routine) return INVAL_INP;
 
-    static thread_id id = 0;
+    static thread_id id = 2;
     node *t_node = (node *)malloc(sizeof(node));
     t_node->tid = id++;
     *thread = t_node->tid;
@@ -243,10 +232,15 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 int thread_join(mThread tid, void **retval) {
 	if(! retval)
 		return INVAL_INP;
-	node* n = thread_list;
+
+    acquire(&thread_list.lock);
+
+	node* n = thread_list.list;
 
 	while(n && n->tid != tid)
 		n = n->next;
+
+    release(&thread_list.lock);
 
 	if(!n)
 		return NO_THREAD_FOUND;
@@ -264,13 +258,17 @@ int thread_kill(mThread thread, int signal){
     if (signal == SIGINT || signal == SIGKILL)
         kill(getpid(), signal);
     else if(signal == SIGCONT){
-        node* n = thread_list;
+
+        acquire(&thread_list.lock);
+
+        node* n = thread_list.list;
 
         while(n && n->tid != thread){
             n = n->next;
             if(n == NULL)
                 return NO_THREAD_FOUND;
         }
+        release(&thread_list.lock);
         n->state = THREAD_RUNNABLE;
     }
     else
@@ -278,13 +276,16 @@ int thread_kill(mThread thread, int signal){
         if(curr_running_proc->tid == thread)
             raise(signal);
         else{
-            node* n = thread_list;
+            acquire(&thread_list.lock);
+
+            node* n = thread_list.list;
 
             while(n && n->tid != thread){
                 n = n->next;
                 if(n == NULL)
                     return -1;  // TODO return error no
             }
+            release(&thread_list.lock);
             n->sig_info->arr[n->sig_info->rem_sig_cnt++] = signal;
             printf("inside thread kill %d %d\n", n->sig_info->arr[n->sig_info->rem_sig_cnt - 1], signal);
         }
@@ -306,6 +307,19 @@ void thread_exit(void *retval) {
 
 	// syscall(SYS_exit, EXIT_SUCCESS);
 }
+
+void init_thread_lock(struct spinlock *lk){
+    initlock(lk);
+}
+
+void thread_lock(struct spinlock *lk){
+    acquire(lk);
+}
+
+void thread_unlock(struct spinlock *lk){
+    release(lk);
+}
+
 
 void f1() {
 	while(1){
@@ -333,7 +347,7 @@ void f3() {
     }
 }
 
-/*
+
 int main() {
     mThread td;
 	mThread tt, tm;
@@ -345,17 +359,18 @@ int main() {
     // thread_create(&tm, NULL, f3, NULL);
     // signal(SIGVTALRM, signal_handler_vtalarm);
 
-    printf("sending signal to %ld\n", tt);
+    // printf("sending signal to %ld\n", tt);
     // thread_kill(tt, SIGVTALRM);
 
 	
-    node* t = thread_list;
+    // node* t = thread_list.list;
     
-    void **a;
+    // void **a;
     // printf("%ld\n", tm);
     // exit(1);
     // thread_join(tm, a);
     printf("join success");
+    // traverse();
     // return 0;
     // sleep(1);
 
@@ -371,4 +386,3 @@ int main() {
     }
     return 0;
 }
-*/

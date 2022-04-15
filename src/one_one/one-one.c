@@ -173,6 +173,10 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 	return 0;
 }
 
+void init_thread_lock(struct spinlock *lk){
+    initlock(lk);
+}
+
 void thread_lock(struct spinlock *lk){
     acquire(lk);
 }

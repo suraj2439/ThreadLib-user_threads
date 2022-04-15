@@ -10,7 +10,7 @@
 #define THREAD_RUNNABLE 22
 #define NO_THREAD_FOUND 23
 #define GUARD_PAGE_SIZE	4096
-#define ALARM_TIME 100000  // in microseconds 
+#define ALARM_TIME 100  // in microseconds 
 #define NO_OF_KTHREADS 2
 #define K_ALARM_TIME    (ALARM_TIME / NO_OF_KTHREADS)
 #define CLONE_FLAGS     CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD |CLONE_SYSVSEM|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID
@@ -18,6 +18,7 @@
 typedef unsigned long int thread_id;
 typedef unsigned long int mThread;
 
+#include "lock.h"
 
 typedef struct sig_node {
     int t_signal;
@@ -50,6 +51,10 @@ typedef struct node {
     struct node* next;
 } node;
 
+typedef struct node_list {
+    node* list;
+    spinlock lock;
+}node_list;
 
 // The  thread_create() function starts a new thread in the calling process.  The new thread starts execution by invoking routine(); 
 // arg is passed as the sole argument of routine().
@@ -65,5 +70,10 @@ void thread_exit(void *retval);
 
 // The thread_kill() function sends the signal sig to thread, a thread in the same process as the caller
 int thread_kill(mThread thread, int signal);
+
+
+void init_thread_lock(struct spinlock *lk);
+void thread_lock(struct spinlock *lk);
+void thread_unlock(struct spinlock *lk);
 
 #endif

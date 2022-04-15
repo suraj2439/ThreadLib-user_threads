@@ -57,6 +57,7 @@ void thread_exit(void *retval);
 int thread_kill(mThread thread, int signal);
 
 
+void init_thread_lock(struct spinlock *lk);
 void thread_lock(struct spinlock *lk);
 void thread_unlock(struct spinlock *lk);
 
