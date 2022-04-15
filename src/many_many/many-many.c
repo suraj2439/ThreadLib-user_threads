@@ -12,7 +12,7 @@
 
 #define MMAP_FAILED		11
 #define CLONE_FAILED	12
-#define SYSCALL_ERROR	13
+#define INVALID_SIGNAL	13
 #define RAISE_ERROR     14
 
 typedef node* node_list;

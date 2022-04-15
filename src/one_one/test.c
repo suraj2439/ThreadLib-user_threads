@@ -9,6 +9,46 @@
 #define TEST_SUCCESS    printf("Test Passed.\n");
 #define TEST_FAILURE    printf("Test Failed.\n");
 
+
+spinlock lock;  // TODO lock init
+spinlock rwlock;
+int readers = 0;
+
+void frw1()
+{
+    thread_lock(&lock);
+    readers += 1;
+    if (readers == 1)
+    {
+        printf("Acquired writers lock\n");
+        thread_lock(&rwlock);
+    }
+    thread_unlock(&lock);
+    printf("Reader process in\n");
+    thread_lock(&lock);
+    readers -= 1;
+    if (readers == 0)
+    {
+        thread_unlock(&rwlock);
+    }
+    thread_unlock(&lock);
+}
+
+void frw2()
+{
+    thread_lock(&rwlock);
+    printf("Writer process in\n");
+    thread_unlock(&rwlock);
+}
+
+void readers_writers_test() {
+    mThread t1, t2;
+    thread_create(&t1, NULL, frw1, NULL);
+    thread_create(&t2, NULL, frw2, NULL);
+    thread_join(t2, NULL);
+    thread_join(t1, NULL);
+}
+
 void line() {
     printf("\n");
     for(int i = 0; i < 100; i++) 
@@ -200,6 +240,64 @@ void thread_kill_robust() {
     else TEST_FAILURE
 }
 
+
+int c = 0;
+spinlock test;
+
+void lockFun1() {
+    int *ret = (int *)malloc(sizeof(int));
+	printf("inside 1st fun.\n");
+	int c1;
+	while(1) {
+		thread_lock(&test);
+		c++;
+		c1++;
+		thread_unlock(&test);
+		if(c1>1000000)
+			break;
+	}
+	printf("inside 2nd fun c1  = %d\n", c1);
+    *ret = c1;
+    thread_exit(ret);
+}
+
+
+void lockFun2() {
+    int *ret = (int *)malloc(sizeof(int));
+	int c2 = 0;
+	while(1) {
+		thread_lock(&test);
+		c++;
+		c2++;
+		thread_unlock(&test);
+		if(c2>1000000)
+			break;
+	}
+	printf("inside 2nd fun c2  = %d\n", c2);
+    *ret = c2;
+    thread_exit(ret);
+}
+
+
+void thread_lock_unlock_test() {
+    printf("Testing thread_lock() and thread_unlock().");
+    mThread t1, t2;
+    thread_create(&t1, NULL, lockFun1, NULL);
+    thread_create(&t2, NULL, lockFun2, NULL);
+    void **tmp;
+    int *c1 = (int *)malloc(sizeof(int));
+    int *c2 = (int *)malloc(sizeof(int));
+    int *retVal = (int *)malloc(sizeof(int));
+    thread_join(t1, (void **)&c1);
+    thread_join(t2, (void **)&c2);
+
+    printf("value of c = %d\n", c);
+    if(*c1 + *c2 == c)
+        TEST_SUCCESS
+    else TEST_FAILURE
+}
+
+
 void unitTesting() {
     line();
     printf("PERFORMING UNIT TESTING TO CHECK BASIC FEATURES.\n");
@@ -214,6 +312,8 @@ void unitTesting() {
     line();
     thread_funArgs_test();
     line();
+    thread_lock_unlock_test();
+    line();
 }
 
 void robustTesting() {
@@ -227,6 +327,7 @@ void robustTesting() {
     thread_kill_robust();
     line();
 }
+
 
 int main() {
     mThread t1, t2, t3, t4, t5;
@@ -246,12 +347,15 @@ int main() {
     // thread_join(t4, t);
     // printf("join done\n");
 
-    unitTesting();
-    robustTesting();
+    // unitTesting();
+    // robustTesting();
+    // readers_writers_test();
+    thread_join_test();
 
-
-    while(1) {
-        // printf("in main\n");
-        sleep(1);
-    }
+    sleep(5);
+    // printf("done\n");
+    // for(int l = 0; l < 10000; l++) {
+    //     printf("in main\n");
+    //     sleep(1);
+    // }
 }

@@ -34,11 +34,45 @@ int tid_insert(node* nn, thread_id tid, int stack_size, void *stack_start) {
 
 }
 
+void cleanup(thread_id tid) {
+	// printf("given tid %ld\n", tid);
+	acquire(&tid_table.lock);
+	node *prev = NULL, *curr = tid_table.list;
+	while(curr && curr->tid != tid) {
+		prev = curr;
+		curr = curr->next;
+	}
+	if(curr == tid_table.list) {
+		// head node
+		node *tmp = tid_table.list;
+		tid_table.list = tid_table.list->next;
+		munmap(tmp, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
+		free(tmp->wrapper_fun);
+		free(tmp);
+		return;
+	}
+	if(! curr) {
+		printf("DEBUG: cleanup node not found\n");
+		return;
+	}
+	prev->next = curr->next;
+	release(&tid_table.lock);
+	munmap(curr->stack_start, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
+	free(curr->wrapper_fun);
+	free(curr);
+}
+
+void cleanupAll() {
+	printf("Cleaning all theread stacks\n");
+	while(tid_table.list)
+		cleanup(tid_table.list->tid);
+}
+
 void init_threading() {
+	if(atexit(cleanupAll)) printf("atexit registration failed\n");
 	acquire(&tid_table.lock);
 	tid_table.list = NULL;
 	release(&tid_table.lock);
-
 }
 
 int execute_me(void *new_node) {
@@ -50,6 +84,7 @@ int execute_me(void *new_node) {
 	printf("termination done\n");
 	return 0;
 }
+
 
 int thread_join(mThread tid, void **retval) {	// TODO **retval with NULL value
 	if(!retval)
@@ -71,7 +106,7 @@ int thread_join(mThread tid, void **retval) {	// TODO **retval with NULL value
 
 	*retval = n->ret_val;
 	//acquire
-	//remove thread from queue
+	cleanup(tid);
 	//release
 	return 0;
 }
@@ -148,11 +183,6 @@ void thread_unlock(struct spinlock *lk){
 
 void myFun() {
 	printf("inside 1st fun.\n");
-	// sleep(3);
-	// printf("above sleep\n");
-	// void *t;
-	// thread_exit(t);
-	// printf("below sleep\n");
 	
 	int c1;
 	while(1){

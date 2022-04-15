@@ -11,7 +11,7 @@
 #include "many-one.h"
 
 #define MMAP_FAILED		11
-#define SYSCALL_ERROR	13
+#define INVALID_SIGNAL	13
 
 typedef node* node_list;
 
@@ -24,7 +24,6 @@ node_list thread_list = NULL;
 
 node scheduler_node;
 node *curr_running_proc = NULL;
-
 
 // Code reference : https://stackoverflow.com/questions/69148708/alternative-to-mangling-jmp-buf-in-c-for-a-context-switch
 long int mangle(long int p) {
@@ -65,7 +64,7 @@ void handle_pending_signals() {
     sigset_t signal_list;
     for (int i = 0; i < k; i++)
     {
-        sigaddset(&signal_list, curr_running_proc->sig_info->arr[i]);
+        sigaddset(&signal_list, curr_running_proc->sig_info->arr[i]);   // TODO prevent user from giving SIGALARM signal
         sigprocmask(SIG_UNBLOCK, &signal_list, NULL);
         printf("ss = %d\n",  curr_running_proc->sig_info->arr[curr_running_proc->sig_info->rem_sig_cnt - 1]);
         curr_running_proc->sig_info->rem_sig_cnt--;
@@ -113,7 +112,6 @@ void sigterm_signal_handler() {
     thread_exit(NULL);
     return;
 }
-
 
 int execute_me() {
 	// printf("inside execute me\n");
@@ -164,7 +162,6 @@ void thread_insert(node* nn) {
 
  
 void init_many_one() {
-    
     scheduler_node.t_context = (jmp_buf*)malloc(sizeof(jmp_buf));
 
     scheduler_node.stack_start = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
@@ -271,8 +268,8 @@ int thread_kill(mThread thread, int signal){
 
         while(n && n->tid != thread){
             n = n->next;
-            if(n==NULL)
-                return;
+            if(n == NULL)
+                return NO_THREAD_FOUND;
         }
         n->state = THREAD_RUNNABLE;
     }
