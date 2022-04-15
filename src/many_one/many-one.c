@@ -36,6 +36,48 @@ void traverse() {
     printf("\n");
 }
 
+
+void cleanup(thread_id tid) {
+	// printf("given tid %d\n", thread_list.lock.locked);
+    // if(thread_list.lock.locked) flag = 0;
+    acquire(&thread_list.lock);    // TODO debug this, main thread lock already acquired
+	node *prev = NULL, *curr = thread_list.list;
+	while(curr && curr->tid != tid) {
+		prev = curr;
+		curr = curr->next;
+	}
+	if(curr == thread_list.list) {
+		// head node
+		node *tmp = thread_list.list;
+		thread_list.list = thread_list.list->next;
+        release(&thread_list.lock);
+		munmap(tmp, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
+		free(tmp->wrapper_fun);
+        free(tmp->sig_info->arr);
+        free(tmp->sig_info);
+		free(tmp);
+		return;
+	}
+	if(! curr) {
+		printf("DEBUG: cleanup node not found\n");
+        release(&thread_list.lock);
+		return;
+	}
+	prev->next = curr->next;
+	release(&thread_list.lock);
+	munmap(curr->stack_start, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
+	free(curr->wrapper_fun);
+    free(curr->sig_info->arr);
+    free(curr->sig_info);
+	free(curr);
+}
+
+void cleanupAll() {
+	printf("Cleaning all theread stacks\n");
+	while(thread_list.list)
+		cleanup(thread_list.list->tid);
+}
+
 void handle_pending_signals() {
     if (!curr_running_proc)
         return;
@@ -165,7 +207,7 @@ void init_many_one() {
 
     node *main_fun_node = (node *)malloc(sizeof(node));
     main_fun_node->state = THREAD_RUNNING;
-    main_fun_node->tid = 1;
+    main_fun_node->tid = MAIN_TID;
     main_fun_node->t_context = (jmp_buf*) malloc(sizeof(jmp_buf));
     main_fun_node->ret_val = 0;         // not required
     main_fun_node->stack_start = NULL;  // not required
@@ -189,17 +231,16 @@ void init_many_one() {
 }
 
 int thread_create(mThread *thread, void *attr, void *routine, void *args) {
-
-
 	static int is_init_done = 0;
-	if(! is_init_done){
+	if(! is_init_done) {
+        atexit(cleanupAll);
 		init_many_one();
 		is_init_done = 1;
 	}
 
     if(! thread || ! routine) return INVAL_INP;
 
-    static thread_id id = 2;
+    static thread_id id = START_TID;
     node *t_node = (node *)malloc(sizeof(node));
     t_node->tid = id++;
     *thread = t_node->tid;
@@ -249,6 +290,7 @@ int thread_join(mThread tid, void **retval) {
 		;
 
 	*retval = n->ret_val;
+    cleanup(tid);
 	return 0;
 }
 
@@ -348,41 +390,41 @@ void f3() {
 }
 
 
-int main() {
-    mThread td;
-	mThread tt, tm;
+// int main() {
+//     mThread td;
+// 	mThread tt, tm;
 
-	// init_many_one(); 
+// 	// init_many_one(); 
 
-	thread_create(&td, NULL, f1, NULL);
-    thread_create(&tt, NULL, f2, NULL);
-    // thread_create(&tm, NULL, f3, NULL);
-    // signal(SIGVTALRM, signal_handler_vtalarm);
+// 	thread_create(&td, NULL, f1, NULL);
+//     thread_create(&tt, NULL, f2, NULL);
+//     // thread_create(&tm, NULL, f3, NULL);
+//     // signal(SIGVTALRM, signal_handler_vtalarm);
 
-    // printf("sending signal to %ld\n", tt);
-    // thread_kill(tt, SIGVTALRM);
+//     // printf("sending signal to %ld\n", tt);
+//     // thread_kill(tt, SIGVTALRM);
 
 	
-    // node* t = thread_list.list;
+//     // node* t = thread_list.list;
     
-    // void **a;
-    // printf("%ld\n", tm);
-    // exit(1);
-    // thread_join(tm, a);
-    printf("join success");
-    // traverse();
-    // return 0;
-    // sleep(1);
+//     // void **a;
+//     // printf("%ld\n", tm);
+//     // exit(1);
+//     // thread_join(tm, a);
+//     printf("join success");
+//     // traverse();
+//     // return 0;
+//     // sleep(1);
 
-    // thread_kill(td, SIGTERM);
-    for(int i=0; i<10; i++)
-        printf("inside main fun waiting for cont.\n");
-    // thread_kill(td, SIGCONT);
+//     // thread_kill(td, SIGTERM);
+//     for(int i=0; i<10; i++)
+//         printf("inside main fun waiting for cont.\n");
+//     // thread_kill(td, SIGCONT);
 
 
-    while(1){
-        sleep(1);
-	    printf("inside main fun.\n");
-    }
-    return 0;
-}
+//     while(1){
+//         sleep(1);
+// 	    printf("inside main fun.\n");
+//     }
+//     return 0;
+// }

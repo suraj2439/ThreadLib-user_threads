@@ -30,7 +30,7 @@ void acquire(struct spinlock *lk){
 
     disable_alarm_signal();
 	if(lk->locked && lk->tid==curr_running_proc->tid){
-    	// printf("gettid = %ld, and lk->tid = %ld\n", lk->tid, curr_running_proc->tid);
+    	printf("gettid = %ld, and lk->tid = %ld\n", lk->tid, curr_running_proc->tid);
 		perror("Error acquiring lock\n");
 		exit(EXIT_FAILURE);
 	}

@@ -1,15 +1,12 @@
 #include <stdio.h>
 #include <unistd.h>
-#include "one-one.h"
+#include "many_many/many-many.h"
 
-void f1() {
-	while(1){
-        sleep(1);
+void ff() {
 	    printf("inside 1st fun.\n");
-    }
 }
 
-void f2() {
+void f2f() {
 	    printf("inside 2nd fun.\n");
 
     while(1){
@@ -18,7 +15,7 @@ void f2() {
     }
 }
 
-void f3() {
+void f3f() {
     int count = 0;
     void *a;
     while(1){
@@ -30,7 +27,7 @@ void f3() {
     }
 }
 
-void f4() {
+void f4f() {
     int count = 0;
     void *a;
     while(1){
@@ -45,8 +42,7 @@ void f4() {
 
 int main() {
     mThread t1, t2, t3, t4;
-    init_threading();
-    thread_create(&t1, NULL, f1, NULL);
-
-    while(1);
+    thread_create(&t1, NULL, ff, NULL);
+    void **a;
+    thread_join(t1, a);
 }

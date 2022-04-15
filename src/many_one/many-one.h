@@ -12,6 +12,8 @@
 #define GUARD_PAGE_SIZE	4096
 #define ALARM_TIME 100000  // in microseconds 
 #define DEFAULT_SIGNAL_ARRAY_LENGTH 10
+#define MAIN_TID	1
+#define START_TID	2
 
 
 typedef unsigned long int thread_id;

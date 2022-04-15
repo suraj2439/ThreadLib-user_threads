@@ -40,6 +40,47 @@ void traverse() {
     
 }
 
+void cleanup(thread_id tid) {
+	printf("given tid %ld\n", tid);
+	// acquire(&thread_list.lock);
+	node *prev = NULL, *curr = thread_list.list;
+	while(curr && curr->tid != tid) {
+		prev = curr;
+		curr = curr->next;
+	}
+	if(curr == thread_list.list) {
+		// head node
+		node *tmp = thread_list.list;
+		thread_list.list = thread_list.list->next;
+        // release(&thread_list.lock);
+		munmap(tmp, tmp->stack_size);
+		free(tmp->wrapper_fun);
+        free(tmp->sig_info);
+		free(tmp);
+        // printf("cleaned one node\n");
+		return;
+	}
+	if(! curr) {
+		printf("DEBUG: cleanup node not found\n");
+        // release(&thread_list.lock);
+		return;
+	}
+	prev->next = curr->next;
+	// release(&thread_list.lock);
+	munmap(curr->stack_start, curr->stack_size);
+	free(curr->wrapper_fun);
+    free(curr->sig_info);
+	free(curr);
+    // printf("cleaned one node\n");
+    return;
+}
+
+void cleanupAll() {
+	printf("Cleaning all theread stacks\n");
+	while(thread_list.list)
+		cleanup(thread_list.list->tid);
+}
+
 void handle_pending_signals() {
     int curr_kthread_index = get_curr_kthread_index();
     
@@ -179,7 +220,6 @@ void thread_insert(node* nn) {
 
 
 void scheduler() {
-  
     while(1) {
         // printf("inside scheduler\n");
         // traverse();
@@ -295,10 +335,9 @@ int thread_kill(mThread thread, int signal){
 
 
 int thread_create(mThread *thread, void *attr, void *routine, void *args) {
-
-
 	static int is_init_done = 0;
-	if(! is_init_done){
+	if(! is_init_done) {
+        atexit(cleanupAll);
 		init_many_many();
 		is_init_done = 1;
 	}
@@ -389,6 +428,7 @@ int thread_join(mThread tid, void **retval) {
 		;
 
 	*retval = n->ret_val;
+    cleanup(tid);
 	return 0;
 }
 
@@ -467,34 +507,34 @@ void f4() {
 }
 
 
-int main() {
-    mThread t1,t2,t3,t4;
-    // printf("pam = %p\n", f1);
+// int main() {
+//     mThread t1,t2,t3,t4;
+//     // printf("pam = %p\n", f1);
 
-	// init_many_many();
-	thread_create(&t1, NULL, f1, NULL);
-    thread_create(&t2, NULL, f2, NULL);
-    thread_create(&t3, NULL, f3, NULL);
-    thread_create(&t4, NULL, f4, NULL);
+// 	// init_many_many();
+// 	thread_create(&t1, NULL, f1, NULL);
+//     thread_create(&t2, NULL, f2, NULL);
+//     thread_create(&t3, NULL, f3, NULL);
+//     thread_create(&t4, NULL, f4, NULL);
 
-    // exit(1);
-    printf("giving signal to thread id %ld", t4);
-    // thread_kill(t4, SIGUSR1);
+//     // exit(1);
+//     printf("giving signal to thread id %ld", t4);
+//     // thread_kill(t4, SIGUSR1);
 
-    void **a;
-    // printf("%ld\n", tm);
-    // exit(1);
-    // thread_join(t3, a);
-    // return 0;
-    // sleep(1);
-    // printf("before join 1\n");
-    // thread_join(t3, a);
+//     void **a;
+//     // printf("%ld\n", tm);
+//     // exit(1);
+//     // thread_join(t3, a);
+//     // return 0;
+//     // sleep(1);
+//     // printf("before join 1\n");
+//     // thread_join(t3, a);
 
-    // printf("before join 2\n");
-    // thread_join(t4, a);
-    while(1){
-        sleep(3);
-	    printf("inside main fun.\n");
-    }
-    return 0;
-}
+//     // printf("before join 2\n");
+//     // thread_join(t4, a);
+//     while(1){
+//         sleep(3);
+// 	    printf("inside main fun.\n");
+//     }
+//     return 0;
+// }
