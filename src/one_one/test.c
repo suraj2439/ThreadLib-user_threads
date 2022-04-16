@@ -61,22 +61,16 @@ void emptyfun() {
 
 void join_fun() {
     for(int i = 0; i < 3; i++) 
-        sleep(1);
+        sleep(0.5);
     printf("fun finished\n");
 }
 
 void f1() {
-	while(1){
-	    printf("1st fun\n");
-        sleep(2);
-    }
+	printf("1st fun\n");
 }
 
 void f2() {
-    while(1){
-	    printf("2nd fun\n");
-        sleep(1);
-    }
+    printf("2nd fun\n");
 }
 
 void thread_create_test() {
@@ -85,8 +79,11 @@ void thread_create_test() {
     int success = 0;
     int failure = 0;
     mThread threads[cnt];
-    for(int i = 0; i < cnt; i++) {
+    for(int i = 0; i < cnt; i++)
         thread_create(&(threads[i]), NULL, emptyfun, NULL) ? failure++ : success++;
+    for(int i = 0; i < cnt; i++) {
+        int *retVal = (int *)malloc(sizeof(int));
+        thread_join(threads[i], (void **)&retVal);
     }
     printf("thread_create() test result: \nsuccess : %d\nfailure : %d\n", success, failure);
 }
@@ -172,7 +169,7 @@ void testSig() {
 void fexit() {
     int *tid = (int *)malloc(sizeof(int));
     *tid = gettid();
-    printf("Exiting thread 1 with value %d\n", *(int *)tid);
+    printf("Exiting thread with value %d\n", *(int *)tid);
     thread_exit(tid);
 }
 
@@ -303,16 +300,21 @@ void unitTesting() {
     printf("PERFORMING UNIT TESTING TO CHECK BASIC FEATURES.\n");
     line();
     thread_create_test();
+    sleep(1);
     line();
     thread_join_test();
+    sleep(0.5);
     line();
     // TODO attribute test 
     // testSig();      // TODO handle thread specific signal
     thread_exit_test();
+    sleep(0.5);
     line();
     thread_funArgs_test();
+    sleep(0.5);
     line();
     thread_lock_unlock_test();
+    sleep(0.5);
     line();
 }
 
@@ -347,10 +349,9 @@ int main() {
     // thread_join(t4, t);
     // printf("join done\n");
 
-    // unitTesting();
+    unitTesting();
     // robustTesting();
     // readers_writers_test();
-    thread_join_test();
 
     sleep(5);
     // printf("done\n");

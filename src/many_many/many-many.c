@@ -322,6 +322,8 @@ int thread_kill(mThread thread, int signal){
 
 
 int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void *args) {
+    printf("start\n");
+
 	static int is_init_done = 0;
 	if(! is_init_done) {
         atexit(cleanupAll);
@@ -353,9 +355,9 @@ int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void
 		stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
 		if(stack == MAP_FAILED)
 			return MMAP_FAILED;
+    printf("end\n");
 		mprotect(stack, guardSize, PROT_NONE);
 	}
-
     static thread_id id = 0;
 
     wrap_fun_info *info = (wrap_fun_info*)malloc(sizeof(wrap_fun_info));
@@ -461,78 +463,78 @@ void thread_unlock(struct spinlock *lk){
 }
 
 
-void f1() {
-    printf("inside first function\n");
-    sleep(2);
-    // return;
-	while(1){
-        sleep(1);
-	    printf("inside 1st fun.\n");
-    }
-}
+// void f1() {
+//     printf("inside first function\n");
+//     sleep(2);
+//     // return;
+// 	while(1){
+//         sleep(1);
+// 	    printf("inside 1st fun.\n");
+//     }
+// }
 
-void f2() {
-	    printf("inside 2nd fun.\n");
+// void f2() {
+// 	    printf("inside 2nd fun.\n");
 
-    while(1){
-        sleep(1);
-	    printf("inside 2nd fun.\n");
-    }
-}
+//     while(1){
+//         sleep(1);
+// 	    printf("inside 2nd fun.\n");
+//     }
+// }
 
-void f3() {
-    int count = 0;
-    void *a;
-    while(1){
-	    printf("inside 3rd function\n");
-        sleep(1);
-        count+=1;
-        if(count > 4)
-            thread_exit(a);
-    }
-}
+// void f3() {
+//     int count = 0;
+//     void *a;
+//     while(1){
+// 	    printf("inside 3rd function\n");
+//         sleep(1);
+//         count+=1;
+//         if(count > 4)
+//             thread_exit(a);
+//     }
+// }
 
-void f4() {
-    int count = 0;
-    void *a;
-    while(1){
-	    printf("inside 4th function\n");
-        sleep(1);
-        count+=1;
-        if(count > 4)
-            thread_exit(a);
-    }
-}
+// void f4() {
+//     int count = 0;
+//     void *a;
+//     while(1){
+// 	    printf("inside 4th function\n");
+//         sleep(1);
+//         count+=1;
+//         if(count > 4)
+//             thread_exit(a);
+//     }
+// }
 
 
-int main() {
-    mThread t1,t2,t3,t4;
-    // printf("pam = %p\n", f1);
+// int main() {
+//     mThread t1,t2,t3,t4;
+//     // printf("pam = %p\n", f1);
 
-	// init_many_many();
-	thread_create(&t1, NULL, f1, NULL);
-    thread_create(&t2, NULL, f2, NULL);
-    thread_create(&t3, NULL, f3, NULL);
-    thread_create(&t4, NULL, f4, NULL);
+// 	// init_many_many();
+// 	thread_create(&t1, NULL, f1, NULL);
+//     thread_create(&t2, NULL, f2, NULL);
+//     thread_create(&t3, NULL, f3, NULL);
+//     thread_create(&t4, NULL, f4, NULL);
 
-    // exit(1);
-    printf("giving signal to thread id %ld", t4);
-    // thread_kill(t4, SIGUSR1);
+//     // exit(1);
+//     printf("giving signal to thread id %ld", t4);
+//     // thread_kill(t4, SIGUSR1);
 
-    void **a;
-    // printf("%ld\n", tm);
-    // exit(1);
-    // thread_join(t3, a);
-    // return 0;
-    // sleep(1);
-    // printf("before join 1\n");
-    // thread_join(t3, a);
+//     void **a;
+//     // printf("%ld\n", tm);
+//     // exit(1);
+//     // thread_join(t3, a);
+//     // return 0;
+//     // sleep(1);
+//     // printf("before join 1\n");
+//     // thread_join(t3, a);
 
-    // printf("before join 2\n");
-    // thread_join(t4, a);
-    while(1){
-        sleep(3);
-	    printf("inside main fun.\n");
-    }
-    return 0;
-}
+//     // printf("before join 2\n");
+//     // thread_join(t4, a);
+//     while(1){
+//         sleep(3);
+// 	    printf("inside main fun.\n");
+//     }
+//     return 0;
+// }

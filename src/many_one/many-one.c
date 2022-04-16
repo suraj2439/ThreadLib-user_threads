@@ -37,7 +37,7 @@ void traverse() {
 void cleanup(thread_id tid) {
 	// printf("given tid %d\n", thread_list.lock.locked);
     // if(thread_list.lock.locked) flag = 0;
-    // acquire(&thread_list.lock);    // TODO debug this, main thread lock already acquired
+    acquire(&thread_list.lock);    // TODO debug this, main thread lock already acquired
 	node *prev = NULL, *curr = thread_list.list;
 	while(curr && curr->tid != tid) {
 		prev = curr;
@@ -47,7 +47,7 @@ void cleanup(thread_id tid) {
 		// head node
 		node *tmp = thread_list.list;
 		thread_list.list = thread_list.list->next;
-        // release(&thread_list.lock);
+        release(&thread_list.lock);
 		munmap(tmp, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
 		free(tmp->wrapper_fun);
         free(tmp->sig_info->arr);
@@ -57,16 +57,18 @@ void cleanup(thread_id tid) {
 	}
 	if(! curr) {
 		printf("DEBUG: cleanup node not found\n");
-        // release(&thread_list.lock);
+        release(&thread_list.lock);
 		return;
 	}
 	prev->next = curr->next;
-	// release(&thread_list.lock);
+	release(&thread_list.lock);
 	munmap(curr->stack_start, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
 	free(curr->wrapper_fun);
     free(curr->sig_info->arr);
     free(curr->sig_info);
 	free(curr);
+    printf("cleaned %ld\n", tid);
+    return;
 }
 
 void cleanupAll() {
@@ -181,7 +183,6 @@ void scheduler() {
 
 // insert thread_id node in beginning of list
 void thread_insert(node* nn) {
-
     acquire(&thread_list.lock);
 	nn->next = thread_list.list;
 	thread_list.list = nn;
@@ -238,7 +239,7 @@ void init_mThread_attr(mThread_attr **attr) {
 int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void *args) {
 	static int is_init_done = 0;
 	if(! is_init_done) {
-        // atexit(cleanupAll);
+        atexit(cleanupAll);
 		init_many_one();
 		is_init_done = 1;
 	}
@@ -298,8 +299,9 @@ int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void
     (*(t_node->t_context))->__jmpbuf[7] = mangle((long int)execute_me);
     
     t_node->state = THREAD_RUNNABLE;
+    printf("thread created %ld\n", t_node->tid);
     thread_insert(t_node);
-
+    // printf("tid %ld\n", thread_list.list->tid);
     return 0;
 }
 
@@ -323,12 +325,13 @@ int thread_join(mThread tid, void **retval) {
         ;
 
 	*retval = n->ret_val;
-    // cleanup(tid);
+    cleanup(tid);
 	return 0;
 }
 
 
 int thread_kill(mThread thread, int signal){
+    if(! signal) return INVALID_SIGNAL;
     ualarm(0,0);
     if (signal == SIGINT || signal == SIGKILL)
         kill(getpid(), signal);
@@ -342,14 +345,14 @@ int thread_kill(mThread thread, int signal){
             n = n->next;
             if(n == NULL){
                 release(&thread_list.lock);
+                ualarm(ALARM_TIME, 0);
                 return NO_THREAD_FOUND;
             }
         }
         release(&thread_list.lock);
         n->state = THREAD_RUNNABLE;
     }
-    else
-    {
+    else {
         if(curr_running_proc->tid == thread)
             raise(signal);
         else{
@@ -357,11 +360,15 @@ int thread_kill(mThread thread, int signal){
 
             node* n = thread_list.list;
 
+            printf("signal %d tid %ld\n", signal, thread);
+
             while(n && n->tid != thread){
                 n = n->next;
-                if(n == NULL){
+                if(n == NULL) {
+                    printf("no thread found\n");
                     release(&thread_list.lock);
-                    return -1;  // TODO return error no
+                    ualarm(ALARM_TIME, 0);
+                    return NO_THREAD_FOUND;  // TODO return error no
                 }
             }
             release(&thread_list.lock);
@@ -375,7 +382,7 @@ int thread_kill(mThread thread, int signal){
 
 
 void thread_exit(void *retval) {
-    printf("inside thread exit\n");
+    // printf("inside thread exit\n");
 	node* n = curr_running_proc;
 	n->ret_val = retval;
     traverse();
@@ -400,31 +407,31 @@ void thread_unlock(struct spinlock *lk){
 }
 
 
-void f1() {
-	while(1){
-        sleep(1);
-	    printf("inside 1st fun.\n");
-    }
-}
+// void f1() {
+// 	while(1){
+//         sleep(1);
+// 	    printf("inside 1st fun.\n");
+//     }
+// }
 
-void f2() {
-    while(1){
-        sleep(1);
-	    printf("inside 2nd fun.\n");
-    }
-}
+// void f2() {
+//     while(1){
+//         sleep(1);
+// 	    printf("inside 2nd fun.\n");
+//     }
+// }
 
-void f3() {
-    int count = 0;
-    void *a;
-    while(1){
-	    printf("inside 3rd function\n");
-        sleep(1);
-        count+=1;
-        if(count > 4)
-            thread_exit(a);
-    }
-}
+// void f3() {
+//     int count = 0;
+//     void *a;
+//     while(1){
+// 	    printf("inside 3rd function\n");
+//         sleep(1);
+//         count+=1;
+//         if(count > 4)
+//             thread_exit(a);
+//     }
+// }
 
 
 // int main() {

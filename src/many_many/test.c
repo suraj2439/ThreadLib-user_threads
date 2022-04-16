@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
-#include "many-one.h"
+#include "many-many.h"
 
 #define TEST_SUCCESS    printf("Test Passed.\n");
 #define TEST_FAILURE    printf("Test Failed.\n");
@@ -80,14 +80,16 @@ void f2() {
 }
 
 void thread_create_test() {
-    int cnt = 5;
+    int cnt = 50;
     printf("Testing thread_create() for %d threads.\n", cnt);
     int success = 0;
     int failure = 0;
     mThread threads[cnt];
     for(int i = 0; i < cnt; i++) {
         thread_create(&(threads[i]), NULL, emptyfun, NULL) ? failure++ : success++;
+        printf("done one\n");
     }
+
     printf("thread_create() test result: \nsuccess : %d\nfailure : %d\n", success, failure);
 }
 
@@ -117,7 +119,7 @@ void thread_join_test() {
         thread_join(t[i], tmp);
         sleep(0.5);
     }
-    printf( "Join test completed with the following statistics:\n");
+    printf( "Join test completed with \n");
     printf("Success: %d\n", s);
     printf("Failures: %d\n", f);
     if (f)
@@ -347,10 +349,11 @@ int main() {
     // thread_join(t4, t);
     // printf("join done\n");
 
-    unitTesting();
-    robustTesting();
-    // readers_writers_test();
-    thread_join_test();
+    // unitTesting();
+    thread_create_test();
+    // robustTesting();
+    // // readers_writers_test();
+    // thread_join_test();
 
     printf("done\n");
     while(1) {

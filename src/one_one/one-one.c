@@ -21,7 +21,6 @@ spinlock test;
 
 // insert thread_id node in beginning of list
 int tid_insert(node* nn, thread_id tid, int stack_size, void *stack_start) {
-	
 	nn->tid = tid;
 	nn->stack_size = stack_size;
 	nn->stack_start = stack_start;
@@ -46,6 +45,7 @@ void cleanup(thread_id tid) {
 		// head node
 		node *tmp = tid_table.list;
 		tid_table.list = tid_table.list->next;
+		release(&tid_table.lock);
 		munmap(tmp, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
 		free(tmp->wrapper_fun);
 		free(tmp);
@@ -53,6 +53,7 @@ void cleanup(thread_id tid) {
 	}
 	if(! curr) {
 		printf("DEBUG: cleanup node not found\n");
+		release(&tid_table.lock);
 		return;
 	}
 	prev->next = curr->next;
@@ -248,46 +249,46 @@ void signal_handler() {
 }
 
 
-int main() {
-	mThread td;
-	mThread tt;
+// int main() {
+// 	mThread td;
+// 	mThread tt;
 
-	mThread_attr *attr;;
-	init_mThread_attr(&attr);
-	// signal(SIGALRM, signal_handler);
-	int a = 4;
-	attr->stackSize = 4000;
-	thread_create(&td, attr, myFun, (void*)&a);
-	// thread_create(&tt, NULL, myF, NULL);
-	printf("sending signal to %ld\n", td);
-	// thread_kill(td, SIGALRM);
-	// thread_kill(td, 12);	
-	printf("stack size %d\n", tid_table.list->stack_size);
-	while(1) {
-		printf("in main \n");
-		sleep(1);
-	}
-		printf("in main \n");
-	sleep(6);
-		printf("in main \n");
+// 	mThread_attr *attr;;
+// 	init_mThread_attr(&attr);
+// 	// signal(SIGALRM, signal_handler);
+// 	int a = 4;
+// 	attr->stackSize = 4000;
+// 	thread_create(&td, attr, myFun, (void*)&a);
+// 	// thread_create(&tt, NULL, myF, NULL);
+// 	printf("sending signal to %ld\n", td);
+// 	// thread_kill(td, SIGALRM);
+// 	// thread_kill(td, 12);	
+// 	printf("stack size %d\n", tid_table.list->stack_size);
+// 	while(1) {
+// 		printf("in main \n");
+// 		sleep(1);
+// 	}
+// 		printf("in main \n");
+// 	sleep(6);
+// 		printf("in main \n");
 
 	
-	// thread_create(&tt, NULL, myF, NULL);
-	// printf("bfr join.\n");
-	// void **a;
-	// thread_join(td, a);
-	// printf("maftr join\n");
-	// sleep(1);
-	// printf("bfr join1.\n");
-	// thread_join(tt, a);
-	// printf("maftr join2\n");
-	// //printf("%ld\n", tid_table->next->tid);
+// 	// thread_create(&tt, NULL, myF, NULL);
+// 	// printf("bfr join.\n");
+// 	// void **a;
+// 	// thread_join(td, a);
+// 	// printf("maftr join\n");
+// 	// sleep(1);
+// 	// printf("bfr join1.\n");
+// 	// thread_join(tt, a);
+// 	// printf("maftr join2\n");
+// 	// //printf("%ld\n", tid_table->next->tid);
 
-	// node *tmp = tid_table;
-	// while(tmp) {
-	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
-	// 	tmp = tmp->next;
-	// }
-	return 0;
-}
+// 	// node *tmp = tid_table;
+// 	// while(tmp) {
+// 	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
+// 	// 	tmp = tmp->next;
+// 	// }
+// 	return 0;
+// }
 
