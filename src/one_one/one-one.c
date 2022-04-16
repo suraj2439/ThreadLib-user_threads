@@ -41,6 +41,11 @@ void cleanup(thread_id tid) {
 		prev = curr;
 		curr = curr->next;
 	}
+	if(! curr) {
+		printf("DEBUG: cleanup node not found\n");
+		release(&tid_table.lock);
+		return;
+	}
 	if(curr == tid_table.list) {
 		// head node
 		node *tmp = tid_table.list;
@@ -48,19 +53,15 @@ void cleanup(thread_id tid) {
 		release(&tid_table.lock);
 		munmap(tmp, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
 		free(tmp->wrapper_fun);
-		free(tmp);
-		return;
-	}
-	if(! curr) {
-		printf("DEBUG: cleanup node not found\n");
-		release(&tid_table.lock);
+		// free(tmp);
 		return;
 	}
 	prev->next = curr->next;
 	release(&tid_table.lock);
 	munmap(curr->stack_start, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
 	free(curr->wrapper_fun);
-	free(curr);
+	// free(curr);
+	return;
 }
 
 void cleanupAll() {
@@ -69,7 +70,13 @@ void cleanupAll() {
 		cleanup(tid_table.list->tid);
 }
 
+void sigusr_signal_handler(){
+	thread_exit(NULL);
+	return;
+}
+
 void init_threading() {
+	signal(SIGUSR1, sigusr_signal_handler);
 	if(atexit(cleanupAll)) printf("atexit registration failed\n");
 	acquire(&tid_table.lock);
 	tid_table.list = NULL;
@@ -95,8 +102,8 @@ int execute_me(void *new_node) {
 
 
 int thread_join(mThread tid, void **retval) {	// TODO **retval with NULL value
-	if(!retval)
-		return INVAL_INP;
+	// if(!retval)
+	// 	return INVAL_INP;
 		
 	acquire(&tid_table.lock);
 
@@ -112,7 +119,8 @@ int thread_join(mThread tid, void **retval) {	// TODO **retval with NULL value
 	while(n->state!=THREAD_TERMINATED)
 		;
 
-	*retval = n->ret_val;
+	if(retval)
+		*retval = n->ret_val;
 	//acquire
 	cleanup(tid);
 	//release
@@ -142,6 +150,12 @@ void thread_exit(void *retval) {
 int thread_kill(mThread thread, int signal) {
 	if(!signal ) return INVALID_SIGNAL;
 	int process_id = getpid();
+	if(signal == SIGTERM){
+		int val = syscall(SYS_tgkill, process_id, thread, SIGUSR1);
+		if(val == -1)
+			return INVALID_SIGNAL;
+		return 0;
+	}
 	int val = syscall(SYS_tgkill, process_id, thread, signal);
 	if(val == -1)
 		return INVALID_SIGNAL;
@@ -213,11 +227,12 @@ void thread_unlock(struct spinlock *lk){
 }
 
 void myFun() {
-	printf("inside 1st fun.\n");
 	
 	int c1;
 	while(1){
 		acquire(&test);
+		printf("inside 1st fun.\n");
+		sleep(1);
 		c++;
 		c1++;
 		release(&test);
@@ -230,10 +245,11 @@ void myFun() {
 
 void myF() {
 	// sleep(3);
-	printf("inside 2nd fun\n");
 	int c2 = 0;
 	while(1){
 		acquire(&test);
+		printf("inside 2nd fun\n");
+		sleep(1);
 		c++;
 		c2++;
 		release(&test);
@@ -249,46 +265,47 @@ void signal_handler() {
 }
 
 
-// int main() {
-// 	mThread td;
-// 	mThread tt;
+int main() {
+	mThread td;
+	mThread tt;
 
-// 	mThread_attr *attr;;
-// 	init_mThread_attr(&attr);
-// 	// signal(SIGALRM, signal_handler);
-// 	int a = 4;
-// 	attr->stackSize = 4000;
-// 	thread_create(&td, attr, myFun, (void*)&a);
-// 	// thread_create(&tt, NULL, myF, NULL);
-// 	printf("sending signal to %ld\n", td);
-// 	// thread_kill(td, SIGALRM);
-// 	// thread_kill(td, 12);	
-// 	printf("stack size %d\n", tid_table.list->stack_size);
-// 	while(1) {
-// 		printf("in main \n");
-// 		sleep(1);
-// 	}
-// 		printf("in main \n");
-// 	sleep(6);
-// 		printf("in main \n");
+	mThread_attr *attr;;
+	init_mThread_attr(&attr);
+	// signal(SIGALRM, signal_handler);
+	int a = 4;
+	attr->stackSize = 4000;
+	thread_create(&td, attr, myFun, (void*)&a);
+	thread_create(&tt, NULL, myF, NULL);
+	thread_kill(td, SIGTERM);
+	printf("sending signal to %ld\n", td);
+	// thread_kill(td, SIGALRM);
+	// thread_kill(td, 12);	
+	printf("stack size %d\n", tid_table.list->stack_size);
+	while(1) {
+		printf("in main \n");
+		sleep(1);
+	}
+		printf("in main \n");
+	sleep(6);
+		printf("in main \n");
 
 	
-// 	// thread_create(&tt, NULL, myF, NULL);
-// 	// printf("bfr join.\n");
-// 	// void **a;
-// 	// thread_join(td, a);
-// 	// printf("maftr join\n");
-// 	// sleep(1);
-// 	// printf("bfr join1.\n");
-// 	// thread_join(tt, a);
-// 	// printf("maftr join2\n");
-// 	// //printf("%ld\n", tid_table->next->tid);
+	// thread_create(&tt, NULL, myF, NULL);
+	// printf("bfr join.\n");
+	// void **a;
+	// thread_join(td, a);
+	// printf("maftr join\n");
+	// sleep(1);
+	// printf("bfr join1.\n");
+	// thread_join(tt, a);
+	// printf("maftr join2\n");
+	// //printf("%ld\n", tid_table->next->tid);
 
-// 	// node *tmp = tid_table;
-// 	// while(tmp) {
-// 	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
-// 	// 	tmp = tmp->next;
-// 	// }
-// 	return 0;
-// }
+	// node *tmp = tid_table;
+	// while(tmp) {
+	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
+	// 	tmp = tmp->next;
+	// }
+	return 0;
+}
 

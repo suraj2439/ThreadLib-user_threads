@@ -57,6 +57,16 @@ void line() {
 }
 
 void emptyfun() {
+    int count = 0;
+    void *a;
+    while(1){
+	    // printf("inside 3rd function\n");
+        sleep(1);
+        count+=1;
+        if(count > 4)
+            break;
+            // thread_exit(a);
+    }
 }
 
 void join_fun() {
@@ -80,7 +90,7 @@ void f2() {
 }
 
 void thread_create_test() {
-    int cnt = 50;
+    int cnt = 3;
     printf("Testing thread_create() for %d threads.\n", cnt);
     int success = 0;
     int failure = 0;
@@ -356,8 +366,9 @@ int main() {
     // thread_join_test();
 
     printf("done\n");
-    while(1) {
-        // printf("in main\n");
-        sleep(1);
-    }
+    sleep(5);
+    // while(1) {
+    //     // printf("in main\n");
+    //     sleep(1);
+    // }
 }

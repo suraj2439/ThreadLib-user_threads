@@ -126,14 +126,6 @@ void signal_handler_alarm() {
     return;
 }
 
-void sigterm_signal_handler() {
-    // 
-    printf("inside sigterm_signal_handler \n");    
-
-    thread_exit(NULL);
-    return;
-}
-
 int execute_me() {
 	// printf("inside execute me\n");
 	node *nn = curr_running_proc;
@@ -222,7 +214,7 @@ void init_many_one() {
     thread_insert(main_fun_node);
 
     signal(SIGALRM, signal_handler_alarm);
-    signal(SIGTERM, sigterm_signal_handler);
+
     // signal(SIGALRM, signal_handler_alarm);
     // printf("hello");
 
@@ -333,24 +325,30 @@ int thread_join(mThread tid, void **retval) {
 int thread_kill(mThread thread, int signal){
     if(! signal) return INVALID_SIGNAL;
     ualarm(0,0);
-    if (signal == SIGINT || signal == SIGKILL)
+    if (signal == SIGINT || signal == SIGKILL || signal == SIGSTOP || signal == SIGCONT)
         kill(getpid(), signal);
-    else if(signal == SIGCONT){
-
-        acquire(&thread_list.lock);
-
-        node* n = thread_list.list;
-
-        while(n && n->tid != thread){
-            n = n->next;
-            if(n == NULL){
-                release(&thread_list.lock);
-                ualarm(ALARM_TIME, 0);
-                return NO_THREAD_FOUND;
-            }
+    else if(signal == SIGTERM){
+        if(curr_running_proc->tid == thread){
+            thread_exit(NULL);
         }
-        release(&thread_list.lock);
-        n->state = THREAD_RUNNABLE;
+        else{
+            acquire(&thread_list.lock);
+
+            node* n = thread_list.list;
+
+            while(n && n->tid != thread){
+                n = n->next;
+                if(n == NULL){
+                    release(&thread_list.lock);
+                    ualarm(ALARM_TIME, 0);
+                    return NO_THREAD_FOUND;
+                }
+            }
+            n->state = THREAD_TERMINATED;
+            printf("inside sigterm\n");
+            traverse();
+            release(&thread_list.lock);
+        }
     }
     else {
         if(curr_running_proc->tid == thread)
@@ -407,19 +405,23 @@ void thread_unlock(struct spinlock *lk){
 }
 
 
-// void f1() {
-// 	while(1){
-//         sleep(1);
-// 	    printf("inside 1st fun.\n");
-//     }
-// }
+void f11() {
+    int cnt = 0;
+	while(1){
+        sleep(1);
+	    printf("inside 1st fun.\n");
+        cnt++;
+        if(cnt>5)
+            thread_kill(curr_running_proc->tid, SIGTERM);
+    }
+}
 
-// void f2() {
-//     while(1){
-//         sleep(1);
-// 	    printf("inside 2nd fun.\n");
-//     }
-// }
+void f22() {
+    while(1){
+        sleep(1);
+	    printf("inside 2nd fun.\n");
+    }
+}
 
 // void f3() {
 //     int count = 0;
@@ -434,43 +436,41 @@ void thread_unlock(struct spinlock *lk){
 // }
 
 
-// int main() {
-//     mThread td;
-// 	mThread tt, tm;
+int main() {
+    mThread td;
+	mThread tt, tm;
 
-// 	// init_many_one(); 
+	// init_many_one(); 
 
-//     mThread_attr *attr;
-//     init_mThread_attr(&attr);
-// 	thread_create(&td, attr, f1, NULL);
-//     thread_create(&tt, attr, f2, NULL);
-//     // thread_create(&tm, NULL, f3, NULL);
-//     // signal(SIGVTALRM, signal_handler_vtalarm);
+    mThread_attr *attr;
+    init_mThread_attr(&attr);
+	thread_create(&td, attr, f11, NULL);
+    thread_create(&tt, attr, f22, NULL);
+    // thread_create(&tm, NULL, f3, NULL);
 
-//     // printf("sending signal to %ld\n", tt);
-//     // thread_kill(tt, SIGVTALRM);
+    // printf("sending signal to %ld\n", tt);
 
 	
-//     // node* t = thread_list.list;
+    // node* t = thread_list.list;
     
-//     // void **a;
-//     // printf("%ld\n", tm);
-//     // exit(1);
-//     // thread_join(tm, a);
-//     printf("join success");
-//     // traverse();
-//     // return 0;
-//     // sleep(1);
+    // void **a;
+    // printf("%ld\n", tm);
+    // exit(1);
+    // thread_join(tm, a);
+    printf("join success");
+    // traverse();
+    // return 0;
+    // sleep(1);
 
-//     // thread_kill(td, SIGTERM);
-//     for(int i=0; i<10; i++)
-//         printf("inside main fun waiting for cont.\n");
-//     // thread_kill(td, SIGCONT);
+    // thread_kill(td, SIGTERM);
+    for(int i=0; i<10; i++)
+        printf("inside main fun waiting for cont.\n");
+    // thread_kill(td, SIGCONT);
 
 
-//     while(1){
-//         sleep(1);
-// 	    printf("inside main fun.\n");
-//     }
-//     return 0;
-// }
+    while(1){
+        sleep(1);
+	    printf("inside main fun.\n");
+    }
+    return 0;
+}
