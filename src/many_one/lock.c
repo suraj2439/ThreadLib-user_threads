@@ -37,7 +37,7 @@ void acquire(struct spinlock *lk){
 	
 	// The xchg is atomic.
 	while(xchg(&lk->locked, 1) != 0)
-    	;
+    	printf("waiting for lock\n");
 
 	lk->tid = curr_running_proc->tid;
 }

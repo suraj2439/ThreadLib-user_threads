@@ -15,6 +15,9 @@
 #define MAIN_TID	1
 #define START_TID	2
 
+#define MMAP_FAILED		11
+#define INVALID_SIGNAL	13
+
 
 typedef unsigned long int thread_id;
 typedef unsigned long int mThread;
@@ -52,9 +55,15 @@ typedef struct tid_list{
 	spinlock lock;
 } tid_list;
 
+typedef struct mThread_attr {
+	void *stack;
+    int stackSize;
+    int guardSize;
+} mThread_attr;
+
 // The  thread_create() function starts a new thread in the calling process.  The new thread starts execution by invoking routine(); 
 // arg is passed as the sole argument of routine().
-int thread_create(mThread *thread, void *attr, void *routine, void *args);
+int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void *args);
 
 // The  thread_join() function waits for the thread specified by thread to terminate.  
 // If that thread has already terminated, then pthread_join() returns immediately. 

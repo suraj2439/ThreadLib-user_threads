@@ -75,6 +75,13 @@ void init_threading() {
 	release(&tid_table.lock);
 }
 
+void init_mThread_attr(mThread_attr **attr) {
+	*attr = (mThread_attr*)malloc(sizeof(mThread_attr));
+	(*attr)->guardSize = GUARD_PAGE_SIZE;
+	(*attr)->stack = NULL;
+	(*attr)->stackSize = DEFAULT_STACK_SIZE;
+}
+
 int execute_me(void *new_node) {
 	node *nn = (node*)new_node;
 	nn->state = THREAD_RUNNING;
@@ -140,32 +147,51 @@ int thread_kill(mThread thread, int signal) {
 	return 0;
 }
 
-int thread_create(mThread *thread, void *attr, void *routine, void *args) {
+int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void *args) {
+	if(! thread || ! routine) return INVAL_INP;
+
+	int guardSize, stackSize;
+	void *stack;
+	if(attr) {
+		if(guardSize) guardSize = attr->guardSize;
+		else guardSize = GUARD_PAGE_SIZE;
+		if(attr->stack) 
+			stack = attr->stack;
+		else {
+			stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
+			if(stack == MAP_FAILED)
+				return MMAP_FAILED;
+		}
+		mprotect(stack, guardSize, PROT_NONE);
+		if(attr->stackSize) stackSize = attr->stackSize;
+		else stackSize = DEFAULT_STACK_SIZE;
+	}
+	else {
+		guardSize = GUARD_PAGE_SIZE;
+		stackSize = DEFAULT_STACK_SIZE;
+		stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
+		if(stack == MAP_FAILED)
+			return MMAP_FAILED;
+		mprotect(stack, guardSize, PROT_NONE);
+	}
 
 	static int is_init_done = 0;
 	if(! is_init_done){
 		init_threading();
 		is_init_done = 1;
 	}
-
-	if(! thread || ! routine) return INVAL_INP;
 	
 	unsigned long int CLONE_FLAGS = CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD |CLONE_SYSVSEM|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID;
 	wrap_fun_info *info = (wrap_fun_info*)malloc(sizeof(wrap_fun_info));
 	info->fun = routine;
 	info->args = args;
 	info->thread = thread;
-	
-	void *stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
-	// printf("%p\n", stack);
-	if(stack == MAP_FAILED)
-		return MMAP_FAILED;
-	mprotect(stack, GUARD_PAGE_SIZE, PROT_NONE);
 
 	node *new_node = (node*)malloc(sizeof(node));
 	new_node->wrapper_fun = info;
 	
-	*thread = clone(execute_me, stack + DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE, CLONE_FLAGS, (void *)new_node);
+	// printf("stacksize : %d\n guardsize %d\n", stackSize,guardSize);
+	*thread = clone(execute_me, stack + stackSize + guardSize, CLONE_FLAGS, (void *)new_node);
 	if(*thread == -1) 
 		return CLONE_FAILED;
 	tid_insert(new_node,*thread, DEFAULT_STACK_SIZE, stack);
@@ -222,42 +248,46 @@ void signal_handler() {
 }
 
 
-// int main() {
-// 	mThread td;
-// 	mThread tt;
-// 	// init_threading();
-// 	signal(SIGALRM, signal_handler);
-// 	int a = 4;
-// 	thread_create(&td, NULL, myFun, (void*)&a);
-// 	// thread_create(&tt, NULL, myF, NULL);
-// 	printf("sending signal to %ld\n", td);
-// 	// thread_kill(td, SIGALRM);
-// 	// thread_kill(td, 12);	
-// 	while(1) {
-// 		printf("in main \n");
-// 		sleep(1);
-// 	}
-// 		printf("in main \n");
-// 	sleep(6);
-// 		printf("in main \n");
+int main() {
+	mThread td;
+	mThread tt;
+
+	mThread_attr *attr;;
+	init_mThread_attr(&attr);
+	// signal(SIGALRM, signal_handler);
+	int a = 4;
+	attr->stackSize = 4000;
+	thread_create(&td, attr, myFun, (void*)&a);
+	// thread_create(&tt, NULL, myF, NULL);
+	printf("sending signal to %ld\n", td);
+	// thread_kill(td, SIGALRM);
+	// thread_kill(td, 12);	
+	printf("stack size %d\n", tid_table.list->stack_size);
+	while(1) {
+		printf("in main \n");
+		sleep(1);
+	}
+		printf("in main \n");
+	sleep(6);
+		printf("in main \n");
 
 	
-// 	// thread_create(&tt, NULL, myF, NULL);
-// 	// printf("bfr join.\n");
-// 	// void **a;
-// 	// thread_join(td, a);
-// 	// printf("maftr join\n");
-// 	// sleep(1);
-// 	// printf("bfr join1.\n");
-// 	// thread_join(tt, a);
-// 	// printf("maftr join2\n");
-// 	// //printf("%ld\n", tid_table->next->tid);
+	// thread_create(&tt, NULL, myF, NULL);
+	// printf("bfr join.\n");
+	// void **a;
+	// thread_join(td, a);
+	// printf("maftr join\n");
+	// sleep(1);
+	// printf("bfr join1.\n");
+	// thread_join(tt, a);
+	// printf("maftr join2\n");
+	// //printf("%ld\n", tid_table->next->tid);
 
-// 	// node *tmp = tid_table;
-// 	// while(tmp) {
-// 	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
-// 	// 	tmp = tmp->next;
-// 	// }
-// 	return 0;
-// }
+	// node *tmp = tid_table;
+	// while(tmp) {
+	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
+	// 	tmp = tmp->next;
+	// }
+	return 0;
+}
 

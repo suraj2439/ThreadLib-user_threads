@@ -34,16 +34,24 @@ typedef struct node {
 } node;
 
 
-typedef struct tid_list{
+typedef struct tid_list {
 	node* list;
 	spinlock lock;
 } tid_list;
 
+typedef struct mThread_attr {
+	void *stack;
+    int stackSize;
+    int guardSize;
+} mThread_attr;
+
 void init_threading();  // TODO remove this
+
+void init_mThread_attr();
 
 // The  thread_create() function starts a new thread in the calling process.  The new thread starts execution by invoking routine(); 
 // arg is passed as the sole argument of routine().
-int thread_create(mThread *thread, void *attr, void *routine, void *args);
+int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void *args);
 
 // The  thread_join() function waits for the thread specified by thread to terminate.  
 // If that thread has already terminated, then pthread_join() returns immediately. 

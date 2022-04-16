@@ -12,11 +12,6 @@
 #include "utils.h"
 #include "lock.h"
 
-#define MMAP_FAILED		11
-#define CLONE_FAILED	12
-#define INVALID_SIGNAL	13
-#define RAISE_ERROR     14
-
 node_list thread_list;
 int alarm_index = -1;
 thread_id main_ktid;
@@ -278,30 +273,22 @@ void init_many_many() {     // TODO call only once in therad_create
     acquire(&thread_list.lock);
     thread_list.list = (node*)malloc(sizeof(node)*NO_OF_KTHREADS);
     release(&thread_list.lock);
-    // for(int i=0; i < NO_OF_KTHREADS; i++)
-    //     thread_list.list_array[i] = NULL;
-
-    // node *main_fun_node = (node *)malloc(sizeof(node));
-    // main_fun_node->state = THREAD_RUNNING;
-    // main_fun_node->tid = 0;
-    // main_fun_node->t_context = (jmp_buf*) malloc(sizeof(jmp_buf));
-    // main_fun_node->ret_val = 0;         // not required
-    // main_fun_node->stack_start = NULL;  // not required
-    // main_fun_node->stack_size = 0;      // not required
-    // main_fun_node->wrapper_fun = NULL;  // not required
 
     curr_running_proc_array = (node**)malloc(sizeof(node*) * NO_OF_KTHREADS);
     for(int i=0; i<NO_OF_KTHREADS; i++)
         curr_running_proc_array[i] = NULL;
 
-    // curr_running_proc = main_fun_node;
-    // thread_insert(0, main_fun_node);
-
     signal(SIGALRM, signal_handler_alarm);
     signal(SIGVTALRM, signal_handler_vtalarm);
 
-
     // ualarm(K_ALARM_TIME, 0);
+}
+
+void init_mThread_attr(mThread_attr **attr) {
+	*attr = (mThread_attr*)malloc(sizeof(mThread_attr));
+	(*attr)->guardSize = GUARD_PAGE_SIZE;
+	(*attr)->stack = NULL;
+	(*attr)->stackSize = DEFAULT_STACK_SIZE;
 }
 
 int thread_kill(mThread thread, int signal){
@@ -334,7 +321,7 @@ int thread_kill(mThread thread, int signal){
 }
 
 
-int thread_create(mThread *thread, void *attr, void *routine, void *args) {
+int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void *args) {
 	static int is_init_done = 0;
 	if(! is_init_done) {
         atexit(cleanupAll);
@@ -343,6 +330,31 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 	}
 
     if(! thread || ! routine) return INVAL_INP;
+
+    int guardSize, stackSize;
+	void *stack;
+	if(attr) {
+		if(guardSize) guardSize = attr->guardSize;
+		else guardSize = GUARD_PAGE_SIZE;
+		if(attr->stack) 
+			stack = attr->stack;
+		else {
+			stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
+			if(stack == MAP_FAILED)
+				return MMAP_FAILED;
+		}
+		mprotect(stack, guardSize, PROT_NONE);
+		if(attr->stackSize) stackSize = attr->stackSize;
+		else stackSize = DEFAULT_STACK_SIZE;
+	}
+	else {
+		guardSize = GUARD_PAGE_SIZE;
+		stackSize = DEFAULT_STACK_SIZE;
+		stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
+		if(stack == MAP_FAILED)
+			return MMAP_FAILED;
+		mprotect(stack, guardSize, PROT_NONE);
+	}
 
     static thread_id id = 0;
 
@@ -356,11 +368,10 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
     *thread = t_node->tid;
     t_node->t_context = (jmp_buf*) malloc(sizeof(jmp_buf));
     t_node->ret_val = 0;         // not required
-    t_node->stack_start = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
+    t_node->stack_start = stack;
 	if(t_node->stack_start == MAP_FAILED)
 		return MMAP_FAILED;
-    mprotect(t_node->stack_start, GUARD_PAGE_SIZE, PROT_NONE);
-    t_node->stack_size = DEFAULT_STACK_SIZE;      // not required
+    t_node->stack_size = stackSize;      // not required
     t_node->wrapper_fun = info;  // not required
 
     t_node->sig_info = (signal_info*)malloc(sizeof(signal_info));
@@ -407,19 +418,6 @@ int thread_join(mThread tid, void **retval) {
         n = n->next;
     }
     release(&thread_list.lock);
-
-	// for(int i=0; i<NO_OF_KTHREADS; i++){
-    //     n = thread_list.list_array[i];
-    //     while(n) {
-    //         if(n->tid == tid){
-    //             found_flag = 1;
-    //             break;
-    //         }
-    //         n = n->next;
-    //     }
-    //     if(found_flag)
-    //         break;
-    // }
 
 	if(!n)
 		return NO_THREAD_FOUND;
@@ -507,34 +505,34 @@ void f4() {
 }
 
 
-// int main() {
-//     mThread t1,t2,t3,t4;
-//     // printf("pam = %p\n", f1);
+int main() {
+    mThread t1,t2,t3,t4;
+    // printf("pam = %p\n", f1);
 
-// 	// init_many_many();
-// 	thread_create(&t1, NULL, f1, NULL);
-//     thread_create(&t2, NULL, f2, NULL);
-//     thread_create(&t3, NULL, f3, NULL);
-//     thread_create(&t4, NULL, f4, NULL);
+	// init_many_many();
+	thread_create(&t1, NULL, f1, NULL);
+    thread_create(&t2, NULL, f2, NULL);
+    thread_create(&t3, NULL, f3, NULL);
+    thread_create(&t4, NULL, f4, NULL);
 
-//     // exit(1);
-//     printf("giving signal to thread id %ld", t4);
-//     // thread_kill(t4, SIGUSR1);
+    // exit(1);
+    printf("giving signal to thread id %ld", t4);
+    // thread_kill(t4, SIGUSR1);
 
-//     void **a;
-//     // printf("%ld\n", tm);
-//     // exit(1);
-//     // thread_join(t3, a);
-//     // return 0;
-//     // sleep(1);
-//     // printf("before join 1\n");
-//     // thread_join(t3, a);
+    void **a;
+    // printf("%ld\n", tm);
+    // exit(1);
+    // thread_join(t3, a);
+    // return 0;
+    // sleep(1);
+    // printf("before join 1\n");
+    // thread_join(t3, a);
 
-//     // printf("before join 2\n");
-//     // thread_join(t4, a);
-//     while(1){
-//         sleep(3);
-// 	    printf("inside main fun.\n");
-//     }
-//     return 0;
-// }
+    // printf("before join 2\n");
+    // thread_join(t4, a);
+    while(1){
+        sleep(3);
+	    printf("inside main fun.\n");
+    }
+    return 0;
+}

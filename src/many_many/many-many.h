@@ -15,6 +15,11 @@
 #define K_ALARM_TIME    (ALARM_TIME / NO_OF_KTHREADS)
 #define CLONE_FLAGS     CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD |CLONE_SYSVSEM|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID
 
+#define MMAP_FAILED		11
+#define CLONE_FAILED	12
+#define INVALID_SIGNAL	13
+#define RAISE_ERROR     14
+
 typedef unsigned long int thread_id;
 typedef unsigned long int mThread;
 
@@ -56,9 +61,15 @@ typedef struct node_list {
     spinlock lock;
 }node_list;
 
+typedef struct mThread_attr {
+	void *stack;
+    int stackSize;
+    int guardSize;
+} mThread_attr;
+
 // The  thread_create() function starts a new thread in the calling process.  The new thread starts execution by invoking routine(); 
 // arg is passed as the sole argument of routine().
-int thread_create(mThread *thread, void *attr, void *routine, void *args);
+int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void *args);
 
 // The  thread_join() function waits for the thread specified by thread to terminate.  
 // If that thread has already terminated, then pthread_join() returns immediately. 
