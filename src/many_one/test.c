@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
-#include "one-one.h"
+#include "many-one.h"
 
 #define TEST_SUCCESS    printf("Test Passed.\n");
 #define TEST_FAILURE    printf("Test Failed.\n");
@@ -60,17 +60,23 @@ void emptyfun() {
 }
 
 void join_fun() {
-    for(int i = 0; i < 3; i++) 
-        sleep(0.5);
+    // for(int i = 0; i < 3; i++) 
+        // sleep(1);
     printf("fun finished\n");
 }
 
 void f1() {
-	printf("1st fun\n");
+	while(1){
+	    printf("1st fun\n");
+        sleep(2);
+    }
 }
 
 void f2() {
-    printf("2nd fun\n");
+    while(1){
+	    printf("2nd fun\n");
+        sleep(1);
+    }
 }
 
 void thread_create_test() {
@@ -79,11 +85,8 @@ void thread_create_test() {
     int success = 0;
     int failure = 0;
     mThread threads[cnt];
-    for(int i = 0; i < cnt; i++)
-        thread_create(&(threads[i]), NULL, emptyfun, NULL) ? failure++ : success++;
     for(int i = 0; i < cnt; i++) {
-        int *retVal = (int *)malloc(sizeof(int));
-        thread_join(threads[i], (void **)&retVal);
+        thread_create(&(threads[i]), NULL, emptyfun, NULL) ? failure++ : success++;
     }
     printf("thread_create() test result: \nsuccess : %d\nfailure : %d\n", success, failure);
 }
@@ -169,7 +172,7 @@ void testSig() {
 void fexit() {
     int *tid = (int *)malloc(sizeof(int));
     *tid = gettid();
-    printf("Exiting thread with value %d\n", *(int *)tid);
+    printf("Exiting thread 1 with value %d\n", *(int *)tid);
     thread_exit(tid);
 }
 
@@ -233,7 +236,7 @@ void thread_join_robust() {
 void thread_kill_robust() {
     printf("Sending 1) Invalid Signal and 2) Invalid tid \n");
     mThread t;
-    if (thread_kill(t, 0) == INVALID_SIGNAL && thread_kill(t, SIGINT) == INVALID_SIGNAL) TEST_SUCCESS
+    if (thread_kill(t, 0) != 0 && thread_kill(t, SIGABRT) != 0) TEST_SUCCESS
     else TEST_FAILURE
 }
 
@@ -300,21 +303,16 @@ void unitTesting() {
     printf("PERFORMING UNIT TESTING TO CHECK BASIC FEATURES.\n");
     line();
     thread_create_test();
-    sleep(1);
     line();
     thread_join_test();
-    sleep(0.5);
     line();
     // TODO attribute test 
     // testSig();      // TODO handle thread specific signal
     thread_exit_test();
-    sleep(0.5);
     line();
     thread_funArgs_test();
-    sleep(0.5);
     line();
     thread_lock_unlock_test();
-    sleep(0.5);
     line();
 }
 
@@ -350,13 +348,13 @@ int main() {
     // printf("join done\n");
 
     unitTesting();
-    // robustTesting();
+    robustTesting();
     // readers_writers_test();
+    thread_join_test();
 
-    sleep(5);
-    // printf("done\n");
-    // for(int l = 0; l < 10000; l++) {
-    //     printf("in main\n");
-    //     sleep(1);
-    // }
+    printf("done\n");
+    while(1) {
+        // printf("in main\n");
+        sleep(1);
+    }
 }

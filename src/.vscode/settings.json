@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "sched.h": "c",
-        "many-many.h": "c"
+        "many-many.h": "c",
+        "many-one.h": "c"
     }
 }
