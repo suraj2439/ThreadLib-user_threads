@@ -65,6 +65,8 @@ typedef struct mThread_attr {
 // arg is passed as the sole argument of routine().
 int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void *args);
 
+void init_mThread_attr(mThread_attr **attr);
+
 // The  thread_join() function waits for the thread specified by thread to terminate.  
 // If that thread has already terminated, then pthread_join() returns immediately. 
 int thread_join(mThread tid, void **retval);

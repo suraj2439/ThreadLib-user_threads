@@ -67,7 +67,7 @@ void cleanup(thread_id tid) {
     free(curr->sig_info->arr);
     free(curr->sig_info);
 	free(curr);
-    printf("cleaned %ld\n", tid);
+    // printf("cleaned %ld\n", tid);
     return;
 }
 
@@ -181,6 +181,10 @@ void thread_insert(node* nn) {
     release(&thread_list.lock);
 }
 
+void sigusr2_signal_handler() {
+	printf("SIGUSR2 interrupt received.\n");
+}
+
  
 void init_many_one() {
     scheduler_node.t_context = (jmp_buf*)malloc(sizeof(jmp_buf));
@@ -214,6 +218,7 @@ void init_many_one() {
     thread_insert(main_fun_node);
 
     signal(SIGALRM, signal_handler_alarm);
+    signal(SIGUSR2, sigusr2_signal_handler);
 
     // signal(SIGALRM, signal_handler_alarm);
     // printf("hello");
@@ -243,21 +248,25 @@ int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void
 	if(attr) {
 		if(guardSize) guardSize = attr->guardSize;
 		else guardSize = GUARD_PAGE_SIZE;
-		if(attr->stack) 
+		
+        if(attr->stackSize && !attr->stack) stackSize = attr->stackSize;
+		else stackSize = DEFAULT_STACK_SIZE;
+		
+        if(attr->stack) {
 			stack = attr->stack;
+            stackSize = -1; // indicating current stack user stack
+        }
 		else {
-			stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
+			stack = mmap(NULL, guardSize + stackSize , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
 			if(stack == MAP_FAILED)
 				return MMAP_FAILED;
+            mprotect(stack, guardSize, PROT_NONE);
 		}
-		mprotect(stack, guardSize, PROT_NONE);
-		if(attr->stackSize) stackSize = attr->stackSize;
-		else stackSize = DEFAULT_STACK_SIZE;
 	}
 	else {
 		guardSize = GUARD_PAGE_SIZE;
 		stackSize = DEFAULT_STACK_SIZE;
-		stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
+		stack = mmap(NULL, guardSize + stackSize , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
 		if(stack == MAP_FAILED)
 			return MMAP_FAILED;
 		mprotect(stack, guardSize, PROT_NONE);
@@ -287,19 +296,19 @@ int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void
 	info->thread = thread;
     t_node->wrapper_fun = info;  // not required
 
-    (*(t_node->t_context))->__jmpbuf[6] = mangle((long int)t_node->stack_start+DEFAULT_STACK_SIZE+GUARD_PAGE_SIZE );
+    (*(t_node->t_context))->__jmpbuf[6] = mangle((long int)t_node->stack_start + stackSize + guardSize );
     (*(t_node->t_context))->__jmpbuf[7] = mangle((long int)execute_me);
     
     t_node->state = THREAD_RUNNABLE;
-    printf("thread created %ld\n", t_node->tid);
+    // printf("thread created %ld\n", t_node->tid);
     thread_insert(t_node);
     // printf("tid %ld\n", thread_list.list->tid);
     return 0;
 }
 
 int thread_join(mThread tid, void **retval) {
-	if(! retval)
-		return INVAL_INP;
+	// if(! retval)
+	// 	return INVAL_INP;
 
     acquire(&thread_list.lock);
 
@@ -316,7 +325,8 @@ int thread_join(mThread tid, void **retval) {
 	while(n->state != THREAD_TERMINATED)
         ;
 
-	*retval = n->ret_val;
+    if(retval)
+    	*retval = n->ret_val;
     cleanup(tid);
 	return 0;
 }
@@ -436,41 +446,41 @@ void f22() {
 // }
 
 
-int main() {
-    mThread td;
-	mThread tt, tm;
+// int main() {
+//     mThread td;
+// 	mThread tt, tm;
 
-	// init_many_one(); 
+// 	// init_many_one(); 
 
-    mThread_attr *attr;
-    init_mThread_attr(&attr);
-	thread_create(&td, attr, f11, NULL);
-    thread_create(&tt, attr, f22, NULL);
-    // thread_create(&tm, NULL, f3, NULL);
+//     mThread_attr *attr;
+//     init_mThread_attr(&attr);
+// 	thread_create(&td, attr, f11, NULL);
+//     thread_create(&tt, attr, f22, NULL);
+//     // thread_create(&tm, NULL, f3, NULL);
 
-    // printf("sending signal to %ld\n", tt);
+//     // printf("sending signal to %ld\n", tt);
 
 	
-    // node* t = thread_list.list;
+//     // node* t = thread_list.list;
     
-    // void **a;
-    // printf("%ld\n", tm);
-    // exit(1);
-    // thread_join(tm, a);
-    printf("join success");
-    // traverse();
-    // return 0;
-    // sleep(1);
+//     // void **a;
+//     // printf("%ld\n", tm);
+//     // exit(1);
+//     // thread_join(tm, a);
+//     printf("join success");
+//     // traverse();
+//     // return 0;
+//     // sleep(1);
 
-    // thread_kill(td, SIGTERM);
-    for(int i=0; i<10; i++)
-        printf("inside main fun waiting for cont.\n");
-    // thread_kill(td, SIGCONT);
+//     // thread_kill(td, SIGTERM);
+//     for(int i=0; i<10; i++)
+//         printf("inside main fun waiting for cont.\n");
+//     // thread_kill(td, SIGCONT);
 
 
-    while(1){
-        sleep(1);
-	    printf("inside main fun.\n");
-    }
-    return 0;
-}
+//     while(1){
+//         sleep(1);
+// 	    printf("inside main fun.\n");
+//     }
+//     return 0;
+// }

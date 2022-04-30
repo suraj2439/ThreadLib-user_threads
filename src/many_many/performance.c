@@ -1,7 +1,8 @@
+// CODE REFERENCE : https://www.geeksforgeeks.org/multiplication-of-matrix-using-threads/
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "many_many/many-many.h"
+#include "many-many.h"
 #include <time.h>
 
 #include <sys/time.h>
@@ -14,10 +15,10 @@ long getMicrotime(){
 }
 
 // maximum size of matrix
-#define MAX 1000
+#define MAX 4
  
 // maximum number of threads
-#define MAX_THREAD 1000
+#define MAX_THREAD 3
  
 int matA[MAX][MAX];
 int matB[MAX][MAX];
@@ -48,14 +49,21 @@ void multiply(int isThreading) {
     // Creating four threads, each evaluating its own part
     for (int i = 0; i < MAX_THREAD; i++) {
         int* p;
-        if(isThreading) thread_create(&threads[i], NULL, multi, (void*)(p));
+        if(isThreading) 
+            thread_create(&threads[i], NULL, multi, (void*)(p));
         else multi(p);
     }
- 
+    printf("thread create done\n");
+    printf("thread %ld\n", threads[1]);
+    thread_join(0, NULL);
+    exit(1);
+
     if(isThreading) {
         // joining and waiting for all threads to complete
-        for (int i = 0; i < MAX_THREAD; i++)
-            thread_join(threads[i], NULL);   
+        for (int i = 0; i < MAX_THREAD; i++) {
+            thread_join(threads[i], NULL);
+            printf("t join %d\n", i);
+        }
     }
 }
  
@@ -64,11 +72,11 @@ int main() {
     long start, end;
     start = getMicrotime();
     // Generating random values in matA and matB
-    multiply(0);
+    multiply(1);
     
     end = getMicrotime();
     double diff = (end - start)/1000000.0;
-    printf("Total time required without multithreading: %lf\n", diff);
+    printf("Total time required for multi threading : %lf\n", diff);
 
     start = getMicrotime();
     // Generating random values in matA and matB

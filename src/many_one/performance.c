@@ -1,7 +1,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "many_many/many-many.h"
+#include "many-one.h"
 #include <time.h>
 
 #include <sys/time.h>
@@ -14,10 +14,10 @@ long getMicrotime(){
 }
 
 // maximum size of matrix
-#define MAX 1000
+#define MAX         800
  
 // maximum number of threads
-#define MAX_THREAD 1000
+#define MAX_THREAD  800
  
 int matA[MAX][MAX];
 int matB[MAX][MAX];
@@ -55,7 +55,7 @@ void multiply(int isThreading) {
     if(isThreading) {
         // joining and waiting for all threads to complete
         for (int i = 0; i < MAX_THREAD; i++)
-            thread_join(threads[i], NULL);   
+            thread_join(threads[i], NULL);
     }
 }
  
@@ -68,7 +68,7 @@ int main() {
     
     end = getMicrotime();
     double diff = (end - start)/1000000.0;
-    printf("Total time required without multithreading: %lf\n", diff);
+    printf("Total time required for multi threading : %lf\n", diff);
 
     start = getMicrotime();
     // Generating random values in matA and matB

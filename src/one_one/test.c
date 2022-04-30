@@ -73,6 +73,15 @@ void f2() {
     printf("2nd fun\n");
 }
 
+void simpleLoop() {
+    int count = 0;
+    for(int i = 0; i < 10000; i++) count++;
+}
+
+void infLoop() {
+    while(1);
+}
+
 void thread_create_test() {
     int cnt = 5;
     printf("Testing thread_create() for %d threads.\n", cnt);
@@ -121,48 +130,25 @@ void thread_join_test() {
         failure += 1;
     else
         success += 1;
-    return;
 }
 
-void testSig() {
-    int success = 0;
-    int failure = 0;
-
+void thread_kill_test() {
     printf("Testing thread_kill()\n\n");
     mThread t1, t2, t3;
     printf("Sending a signal to a running thread\n");
-    thread_create(&t1, NULL, f1, NULL);
-    sleep(1);
-    int ret = thread_kill(t1, SIGVTALRM);
-    thread_join(t1, NULL);
-    if (ret != -1) {
-        TEST_SUCCESS
-        success += 1;
-    }
-    else {
-        TEST_FAILURE
-        failure += 1;
-    }
-
-    printf("\nSending a signal to an already exited thread\n");
-    thread_create(&t2, NULL, f1, NULL);
-    thread_join(t2, NULL);
-    ret = thread_kill(t2, SIGTERM);
-    if (ret == -1) {
-        TEST_SUCCESS
-        success += 1;
-    }
-    else {
-        TEST_FAILURE
-        failure += 1;
-    }
+    thread_create(&t1, NULL, simpleLoop, NULL);
+    int ret = thread_kill(t1, SIGUSR2);
+    if (ret != -1) TEST_SUCCESS
+    else TEST_FAILURE
 
     printf("\nSending a process wide signal\n");
-    thread_create(&t3, NULL, f1, NULL);
+    thread_create(&t3, NULL, infLoop, NULL);
+    printf("Kill the infinite routine(only this, thread specific ==> SIGTERM)\n");
+    ret = thread_kill(t3, SIGTERM);
     thread_join(t3, NULL);
-    ret = thread_kill(t3, SIGVTALRM);
-    if (ret == -1)
-        failure += 1;
+    printf("Join on this routine, join success which shows thread is killed.\n");
+    if (ret == 0) TEST_SUCCESS
+    else TEST_FAILURE
 }
 
 
@@ -294,6 +280,31 @@ void thread_lock_unlock_test() {
     else TEST_FAILURE
 }
 
+void thread_attr_test() {
+    printf("Testing mThread_attr to use user define attributes.\n");
+    mThread t1, t2, t3;
+    int myCustomStack[1001];
+
+    mThread_attr *attr = (mThread_attr*)malloc(sizeof(mThread_attr));
+    init_mThread_attr(&attr);
+    printf("Case 1. Passing Custom Stack.\n");
+    attr->stack = (void*)(myCustomStack+1000);
+    if(thread_create(&t1, attr, simpleLoop, NULL) == 0) TEST_SUCCESS
+    else TEST_FAILURE
+    
+    init_mThread_attr(&attr);
+    attr->stackSize = 1000;
+    printf("\nCase 2. Passing Custom Stack Size.\n");
+    if(thread_create(&t2, attr, simpleLoop, NULL) == 0) TEST_SUCCESS
+    else TEST_FAILURE
+
+    init_mThread_attr(&attr);
+    attr->guardSize = 100;
+    printf("\nCase 3. Passing Custom Guard Size.\n");
+    if(thread_create(&t3, attr, simpleLoop, NULL) == 0) TEST_SUCCESS
+    else TEST_FAILURE
+}
+
 
 void unitTesting() {
     line();
@@ -302,11 +313,15 @@ void unitTesting() {
     thread_create_test();
     sleep(1);
     line();
+    thread_attr_test();
+    sleep(0.5);
+    line();
     thread_join_test();
     sleep(0.5);
     line();
     // TODO attribute test 
-    // testSig();      // TODO handle thread specific signal
+    thread_kill_test();      // TODO handle thread specific signal
+    line();
     thread_exit_test();
     sleep(0.5);
     line();
@@ -330,9 +345,9 @@ void robustTesting() {
     line();
 }
 
-
 int main() {
     mThread t1, t2, t3, t4, t5;
+    // thread_kill_test();
     // thread_create(&t1, NULL, join_fun, NULL);
     // thread_create(&t2, NULL, join_fun, NULL);
     // thread_create(&t3, NULL, join_fun, NULL);
@@ -350,10 +365,12 @@ int main() {
     // printf("join done\n");
 
     unitTesting();
-    // robustTesting();
+    robustTesting();
     // readers_writers_test();
+    // thread_attr_test();
 
-    sleep(5);
+    // sleep(2);
+    // sleep(1);
     // printf("done\n");
     // for(int l = 0; l < 10000; l++) {
     //     printf("in main\n");

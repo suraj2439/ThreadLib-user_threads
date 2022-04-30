@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "many-many.h"
 #include <unistd.h>
+#include <stdio.h>
 
 extern int kthread_index[NO_OF_KTHREADS];
 
@@ -45,7 +46,9 @@ int get_curr_kthread_index() {
         // printf("array k thred id %d\n", kthread_index[i]);
 
         if(curr_ktid == kthread_index[i])
-            return i;
+            return i; 
     }
+    // printf("DEBUG : get_curr_kthread_index() not found. Aborting\n");
+    // exit(1);
     return -1;  // ERROR
 }

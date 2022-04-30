@@ -79,6 +79,15 @@ void f2() {
     }
 }
 
+void simpleLoop() {
+    int count = 0;
+    for(int i = 0; i < 1000; i++) count++;
+}
+
+void infLoop() {
+    while(1);
+}
+
 void thread_create_test() {
     int cnt = 5;
     printf("Testing thread_create() for %d threads.\n", cnt);
@@ -191,6 +200,25 @@ void thread_exit_test() {
     TEST_SUCCESS
 }
 
+void thread_kill_test() {
+    printf("Testing thread_kill()\n\n");
+    mThread t1, t2, t3;
+    printf("Sending a signal to a running thread\n");
+    thread_create(&t1, NULL, simpleLoop, NULL);
+    int ret = thread_kill(t1, SIGUSR2);
+    if (ret != -1) TEST_SUCCESS
+    else TEST_FAILURE
+
+    printf("\nSending a process wide signal\n");
+    thread_create(&t3, NULL, infLoop, NULL);
+    printf("Kill the infinite routine(only this, thread specific ==> SIGTERM)\n");
+    ret = thread_kill(t3, SIGTERM);
+    thread_join(t3, NULL);
+    printf("Join on this routine, join success which shows thread is killed.\n");
+    if (ret == 0) TEST_SUCCESS
+    else TEST_FAILURE
+}
+
 void farg(void *arg) {
     int *ret = (int *)malloc(sizeof(int));
     int *a = (int*)arg;
@@ -297,6 +325,31 @@ void thread_lock_unlock_test() {
     else TEST_FAILURE
 }
 
+void thread_attr_test() {
+    printf("Testing mThread_attr to use user define attributes.\n");
+    mThread t1, t2, t3;
+    int myCustomStack[1001];
+
+    mThread_attr *attr = (mThread_attr*)malloc(sizeof(mThread_attr));
+    init_mThread_attr(&attr);
+    printf("Case 1. Passing Custom Stack.\n");
+    attr->stack = (void*)(myCustomStack+1000);
+    if(thread_create(&t1, attr, simpleLoop, NULL) == 0) TEST_SUCCESS
+    else TEST_FAILURE
+    
+    init_mThread_attr(&attr);
+    attr->stackSize = 1000;
+    printf("\nCase 2. Passing Custom Stack Size.\n");
+    if(thread_create(&t2, attr, simpleLoop, NULL) == 0) TEST_SUCCESS
+    else TEST_FAILURE
+
+    init_mThread_attr(&attr);
+    attr->guardSize = 100;
+    printf("\nCase 3. Passing Custom Guard Size.\n");
+    if(thread_create(&t3, attr, simpleLoop, NULL) == 0) TEST_SUCCESS
+    else TEST_FAILURE
+}
+
 
 void unitTesting() {
     line();
@@ -304,10 +357,12 @@ void unitTesting() {
     line();
     thread_create_test();
     line();
+    thread_attr_test();
+    line();
     thread_join_test();
     line();
-    // TODO attribute test 
-    // testSig();      // TODO handle thread specific signal
+    thread_kill_test();
+    line();
     thread_exit_test();
     line();
     thread_funArgs_test();
@@ -353,8 +408,9 @@ int main() {
     thread_join_test();
 
     printf("done\n");
-    while(1) {
-        // printf("in main\n");
-        sleep(1);
-    }
+    sleep(5);
+    // while(1) {
+    //     // printf("in main\n");
+    //     sleep(1);
+    // }
 }

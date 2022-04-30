@@ -30,7 +30,6 @@ int tid_insert(node* nn, thread_id tid, int stack_size, void *stack_start) {
 	nn->next = tid_table.list;
 	tid_table.list = nn;
 	release(&tid_table.lock);
-
 }
 
 void cleanup(thread_id tid) {
@@ -51,23 +50,26 @@ void cleanup(thread_id tid) {
 		node *tmp = tid_table.list;
 		tid_table.list = tid_table.list->next;
 		release(&tid_table.lock);
-		munmap(tmp, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
+		if(tmp->stack_size)		// stack size not 0 means stack is not given by user
+			munmap(tmp, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
 		free(tmp->wrapper_fun);
 		// free(tmp);
 		return;
 	}
+
 	prev->next = curr->next;
 	release(&tid_table.lock);
-	munmap(curr->stack_start, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
+	if(curr->stack_size)		// stack size not 0 means stack is not given by user
+		munmap(curr->stack_start, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
 	free(curr->wrapper_fun);
 	// free(curr);
 	return;
 }
 
 void cleanupAll() {
-	printf("Cleaning all theread stacks\n");
-	while(tid_table.list)
+	while(tid_table.list) 
 		cleanup(tid_table.list->tid);
+	printf("Cleaned all theread stacks\n");
 }
 
 void sigusr_signal_handler(){
@@ -75,8 +77,13 @@ void sigusr_signal_handler(){
 	return;
 }
 
+void sigusr2_signal_handler() {
+	printf("SIGUSR2 interrupt received.\n");
+}
+
 void init_threading() {
 	signal(SIGUSR1, sigusr_signal_handler);
+    signal(SIGUSR2, sigusr2_signal_handler);
 	if(atexit(cleanupAll)) printf("atexit registration failed\n");
 	acquire(&tid_table.lock);
 	tid_table.list = NULL;
@@ -150,7 +157,8 @@ void thread_exit(void *retval) {
 int thread_kill(mThread thread, int signal) {
 	if(!signal ) return INVALID_SIGNAL;
 	int process_id = getpid();
-	if(signal == SIGTERM){
+	
+	if(signal == SIGTERM) {
 		int val = syscall(SYS_tgkill, process_id, thread, SIGUSR1);
 		if(val == -1)
 			return INVALID_SIGNAL;
@@ -168,23 +176,30 @@ int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void
 	int guardSize, stackSize;
 	void *stack;
 	if(attr) {
+		// if guardSize not equal to zero
 		if(guardSize) guardSize = attr->guardSize;
 		else guardSize = GUARD_PAGE_SIZE;
-		if(attr->stack) 
+
+		// if stack size is given by user, use that stack size else use default
+		if(attr->stackSize && !attr->stack) stackSize = attr->stackSize;
+		else stackSize = DEFAULT_STACK_SIZE;
+
+		// if user given users stack use that stack, else mmap new stack
+		if(attr->stack) {
 			stack = attr->stack;
+            stackSize = 0; // indicating current stack user stack
+		}
 		else {
-			stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
+			stack = mmap(NULL, guardSize + stackSize , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
 			if(stack == MAP_FAILED)
 				return MMAP_FAILED;
+			mprotect(stack, guardSize, PROT_NONE);
 		}
-		mprotect(stack, guardSize, PROT_NONE);
-		if(attr->stackSize) stackSize = attr->stackSize;
-		else stackSize = DEFAULT_STACK_SIZE;
 	}
 	else {
 		guardSize = GUARD_PAGE_SIZE;
 		stackSize = DEFAULT_STACK_SIZE;
-		stack = mmap(NULL, GUARD_PAGE_SIZE + DEFAULT_STACK_SIZE , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
+		stack = mmap(NULL, guardSize + stackSize , PROT_READ|PROT_WRITE,MAP_STACK|MAP_ANONYMOUS|MAP_PRIVATE, -1 , 0);
 		if(stack == MAP_FAILED)
 			return MMAP_FAILED;
 		mprotect(stack, guardSize, PROT_NONE);
@@ -209,7 +224,7 @@ int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void
 	*thread = clone(execute_me, stack + stackSize + guardSize, CLONE_FLAGS, (void *)new_node);
 	if(*thread == -1) 
 		return CLONE_FAILED;
-	tid_insert(new_node,*thread, DEFAULT_STACK_SIZE, stack);
+	tid_insert(new_node,*thread, stackSize, stack);
 
 	return 0;
 }
@@ -227,7 +242,6 @@ void thread_unlock(struct spinlock *lk){
 }
 
 void myFun() {
-	
 	int c1;
 	while(1){
 		acquire(&test);
@@ -265,47 +279,47 @@ void signal_handler() {
 }
 
 
-int main() {
-	mThread td;
-	mThread tt;
+// int main() {
+// 	mThread td;
+// 	mThread tt;
 
-	mThread_attr *attr;;
-	init_mThread_attr(&attr);
-	// signal(SIGALRM, signal_handler);
-	int a = 4;
-	attr->stackSize = 4000;
-	thread_create(&td, attr, myFun, (void*)&a);
-	thread_create(&tt, NULL, myF, NULL);
-	thread_kill(td, SIGTERM);
-	printf("sending signal to %ld\n", td);
-	// thread_kill(td, SIGALRM);
-	// thread_kill(td, 12);	
-	printf("stack size %d\n", tid_table.list->stack_size);
-	while(1) {
-		printf("in main \n");
-		sleep(1);
-	}
-		printf("in main \n");
-	sleep(6);
-		printf("in main \n");
+// 	mThread_attr *attr;;
+// 	init_mThread_attr(&attr);
+// 	// signal(SIGALRM, signal_handler);
+// 	int a = 4;
+// 	attr->stackSize = 4000;
+// 	thread_create(&td, attr, myFun, (void*)&a);
+// 	thread_create(&tt, NULL, myF, NULL);
+// 	thread_kill(td, SIGTERM);
+// 	printf("sending signal to %ld\n", td);
+// 	// thread_kill(td, SIGALRM);
+// 	// thread_kill(td, 12);	
+// 	printf("stack size %d\n", tid_table.list->stack_size);
+// 	while(1) {
+// 		printf("in main \n");
+// 		sleep(1);
+// 	}
+// 		printf("in main \n");
+// 	sleep(6);
+// 		printf("in main \n");
 
 	
-	// thread_create(&tt, NULL, myF, NULL);
-	// printf("bfr join.\n");
-	// void **a;
-	// thread_join(td, a);
-	// printf("maftr join\n");
-	// sleep(1);
-	// printf("bfr join1.\n");
-	// thread_join(tt, a);
-	// printf("maftr join2\n");
-	// //printf("%ld\n", tid_table->next->tid);
+// 	// thread_create(&tt, NULL, myF, NULL);
+// 	// printf("bfr join.\n");
+// 	// void **a;
+// 	// thread_join(td, a);
+// 	// printf("maftr join\n");
+// 	// sleep(1);
+// 	// printf("bfr join1.\n");
+// 	// thread_join(tt, a);
+// 	// printf("maftr join2\n");
+// 	// //printf("%ld\n", tid_table->next->tid);
 
-	// node *tmp = tid_table;
-	// while(tmp) {
-	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
-	// 	tmp = tmp->next;
-	// }
-	return 0;
-}
+// 	// node *tmp = tid_table;
+// 	// while(tmp) {
+// 	// 	printf("stack size %d\nabcd\n", tmp->stack_size);
+// 	// 	tmp = tmp->next;
+// 	// }
+// 	return 0;
+// }
 

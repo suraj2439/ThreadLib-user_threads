@@ -2,6 +2,7 @@
     "files.associations": {
         "sched.h": "c",
         "many-many.h": "c",
-        "many-one.h": "c"
+        "many-one.h": "c",
+        "stdlib.h": "c"
     }
 }
