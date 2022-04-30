@@ -83,4 +83,8 @@ void init_thread_lock(struct spinlock *lk);
 void thread_lock(struct spinlock *lk);
 void thread_unlock(struct spinlock *lk);
 
+void init_mutex_thread_lock(struct sleeplock *lk);
+void thread_mutex_lock(struct sleeplock *lk);
+void thread_mutex_unlock(struct sleeplock *lk);
+
 #endif

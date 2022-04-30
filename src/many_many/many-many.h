@@ -5,6 +5,7 @@
 
 #define INVAL_INP	10
 #define DEFAULT_STACK_SIZE	32768
+#define THREAD_SLEEPING 19
 #define THREAD_RUNNING 20
 #define THREAD_TERMINATED 21
 #define THREAD_RUNNABLE 22
@@ -54,6 +55,7 @@ typedef struct node {
 	void* ret_val;
     jmp_buf *t_context;      // use to store thread specific context
     struct node* next;
+    void* chan;
 } node;
 
 typedef struct node_list {
@@ -86,5 +88,9 @@ int thread_kill(mThread thread, int signal);
 void init_thread_lock(struct spinlock *lk);
 void thread_lock(struct spinlock *lk);
 void thread_unlock(struct spinlock *lk);
+
+void init_mutex_thread_lock(struct sleeplock *lk);
+void thread_mutex_lock(struct sleeplock *lk);
+void thread_mutex_unlock(struct sleeplock *lk);
 
 #endif

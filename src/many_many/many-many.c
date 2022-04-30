@@ -87,7 +87,7 @@ void handle_pending_signals() {
     ualarm(0,0);
     node* curr_thread = curr_running_proc_array[curr_kthread_index];
     int k = curr_thread->sig_info->rem_sig_cnt;
-    printf("total pending signals %d\n", k);
+    // printf("total pending signals %d\n", k);
     sigset_t signal_list;
     for (int i = 0; i < k; i++) {
         int signal_to_handle = curr_thread->sig_info->signal_list->t_signal;
@@ -103,7 +103,7 @@ void handle_pending_signals() {
     }
     ualarm(ALARM_TIME,0);
     enable_alarm_signal();
-    printf("kk %d\n",  curr_thread->sig_info->rem_sig_cnt);
+    // printf("kk %d\n",  curr_thread->sig_info->rem_sig_cnt);
 }
 
 // setjump returns 0 for the first time, next time it returns value used in longjump(here 2) 
@@ -237,10 +237,17 @@ void scheduler() {
         acquire(&thread_list.lock);
         node *next_proc = curr_running_proc->next;
         if(! next_proc) next_proc = thread_list.list;            // TODO wrong
-
+        
         while(next_proc->state != THREAD_RUNNABLE) {
             if(next_proc->next) next_proc = next_proc->next;
             else next_proc = thread_list.list;
+            // if(next_proc==curr_running_proc){
+            //     printf("%d\n", next_proc->state);
+            //     release(&thread_list.lock);
+            //     // printf("sleeping\n");
+            //     sleep(0.5);
+            //     acquire(&thread_list.lock);
+            // }
         }
         release(&thread_list.lock);
 
@@ -485,8 +492,8 @@ int thread_create(mThread *thread, void *attr, void *routine, void *args) {
 
 
 int thread_join(mThread tid, void **retval) {
-	if(! retval)
-		return INVAL_INP;
+	// if(! retval)
+	// 	return INVAL_INP;
     int found_flag = 0;
 
     acquire(&thread_list.lock);
@@ -506,8 +513,8 @@ int thread_join(mThread tid, void **retval) {
 
 	while(n->state != THREAD_TERMINATED)
 		;
-
-	*retval = n->ret_val;
+    if(retval)
+	    *retval = n->ret_val;
     // cleanup(tid);
 	return 0;
 }
@@ -544,6 +551,17 @@ void thread_unlock(struct spinlock *lk){
     release(lk);
 }
 
+void init_mutex_thread_lock(struct sleeplock *lk){
+    initsleeplock(lk);
+}
+
+void thread_mutex_lock(struct sleeplock *lk){
+    acquiresleep(lk);
+}
+
+void thread_mutex_unlock(struct sleeplock *lk){
+    releasesleep(lk);
+}
 
 void f11() {
     printf("inside first function\n");
@@ -578,6 +596,45 @@ void f3() {
     }
 }
 
+sleeplock test;
+int c = 0,c1=0,c2=0;
+
+void myFun() {
+	
+	while(1){
+		printf("inside 1st fun.\n");
+		acquiresleep(&test);
+		// sleep(1);
+		c++;
+		c1++;
+    	printf("t1 => c=%d, c1=%d, c2=%d\n", c, c1, c2);
+		releasesleep(&test);
+		if(c1>15)
+			break;
+		if(c1%5==0)
+			printf("inside 2nd fun c1  = %d\n", c1);
+	}
+
+}
+
+void myF() {
+	// sleep(3);
+	while(1){
+		printf("inside 2nd fun\n" );
+		acquiresleep(&test);
+		// sleep(1);
+		c++;
+		c2++;
+    	printf("t2 => c=%d, c1=%d, c2=%d\n", c, c1, c2);
+		releasesleep(&test);
+		if(c2>15)
+			break;
+		if(c2%5==0)
+			printf("inside 2nd fun c2  = %d\n", c2);
+	}
+
+}
+
 // void f4() {
 //     int count = 0;
 //     void *a;
@@ -593,13 +650,26 @@ void f3() {
 
 int main() {
     mThread t1,t2,t3,t4;
+    mThread td,tt;
+    initsleeplock(&test);
     // printf("pam = %p\n", f1);
 
 	// init_many_many();
-	thread_create(&t1, NULL, f11, NULL);
-    thread_create(&t2, NULL, f22, NULL);
-    thread_create(&t3, NULL, f3, NULL);
-
+	// thread_create(&t1, NULL, f11, NULL);
+    // thread_create(&t2, NULL, f22, NULL);
+    // thread_create(&t3, NULL, f3, NULL);
+    thread_create(&td, NULL, myF, NULL);
+    thread_create(&tt, NULL, myFun, NULL);
+    // thread_create(&tm, NULL, f3, NULL);
+    // void **b;
+    thread_join(td, NULL);
+    thread_join(tt, NULL);
+	// thread_join(tt, NULL);
+	// thread_kill(td, SIGALRM);
+	// thread_kill(td, 12);	
+ 
+	printf("c=%d, c1=%d, c2=%d\n", c, c1, c2);
+    return 0;
     // void **a;
     // thread_join(t3,a);
     // thread_create(&t4, NULL, f4, NULL);

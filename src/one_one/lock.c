@@ -75,8 +75,10 @@ void acquiresleep(struct sleeplock *lk){
 	printf("before sys_futex wait %d\n", gettid());
 	
 	while(lk->locked==1){
-
+		release(&lk->lk);
 		syscall(SYS_futex, lk->locked, FUTEX_WAIT, 1, NULL, NULL, 0);
+		acquire(&lk->lk);
+
 		// printf("inside while\n");
 	}
 	printf("out of sys_futex wait %d\n", gettid());

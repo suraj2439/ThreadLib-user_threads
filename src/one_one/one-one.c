@@ -16,7 +16,7 @@
 // of current running therads
 tid_list tid_table;
 
-int c;
+int c, c1, c2;
 sleeplock test;
 
 // insert thread_id node in beginning of list
@@ -242,35 +242,35 @@ void thread_mutex_unlock(struct sleeplock *lk){
 
 void myFun() {
 	
-	int c1;
 	while(1){
-		acquire(&test);
 		printf("inside 1st fun.\n");
+		acquiresleep(&test);
 		sleep(1);
 		c++;
 		c1++;
 		releasesleep(&test);
-		if(c1>1000000)
+		if(c1>15)
 			break;
+		if(c1%5==0)
+			printf("inside 2nd fun c1  = %d\n", c1);
 	}
-	printf("inside 2nd fun c1  = %d\n", c1);
 
 }
 
 void myF() {
 	// sleep(3);
-	int c2 = 0;
 	while(1){
-		acquire(&test);
-		printf("inside 2nd fun\n");
+		printf("inside 2nd fun\n" );
+		acquiresleep(&test);
 		sleep(1);
 		c++;
 		c2++;
 		releasesleep(&test);
-		if(c2>1000000)
+		if(c2>15)
 			break;
+		if(c2%5==0)
+			printf("inside 2nd fun c2  = %d\n", c2);
 	}
-	printf("inside 2nd fun c2  = %d\n", c2);
 
 }
 
@@ -288,13 +288,18 @@ int main() {
 	// signal(SIGALRM, signal_handler);
 	int a = 4;
 	attr->stackSize = 4000;
-	thread_create(&td, attr, myFun, (void*)&a);
+	thread_create(&td, NULL, myFun, NULL);
 	thread_create(&tt, NULL, myF, NULL);
-	thread_kill(td, SIGTERM);
+	// thread_kill(td, SIGTERM);
 	printf("sending signal to %ld\n", td);
+
+	thread_join(td, NULL);
+	thread_join(tt, NULL);
 	// thread_kill(td, SIGALRM);
 	// thread_kill(td, 12);	
-	printf("stack size %d\n", tid_table.list->stack_size);
+	printf("c=%d, c1=%d, c2=%d\n", c, c1, c2);
+	// return 0;
+	// printf("stack size %d\n", tid_table.list->stack_size);
 	while(1) {
 		printf("in main \n");
 		sleep(1);
