@@ -236,7 +236,7 @@ void init_mThread_attr(mThread_attr **attr) {
 int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void *args) {
 	static int is_init_done = 0;
 	if(! is_init_done) {
-        atexit(cleanupAll);
+        // atexit(cleanupAll);
 		init_many_one();
 		is_init_done = 1;
 	}
@@ -414,6 +414,18 @@ void thread_unlock(struct spinlock *lk){
     release(lk);
 }
 
+void init_mutex_thread_lock(struct sleeplock *lk){
+    initsleeplock(lk);
+}
+
+void thread_mutex_lock(struct sleeplock *lk){
+    acquiresleep(lk);
+}
+
+void thread_mutex_unlock(struct sleeplock *lk){
+    releasesleep(lk);
+}
+
 
 void f11() {
     int cnt = 0;
@@ -427,7 +439,8 @@ void f11() {
 }
 
 void f22() {
-    while(1){
+    int i=0;
+    while(i<100){
         sleep(1);
 	    printf("inside 2nd fun.\n");
     }
@@ -444,6 +457,43 @@ void f22() {
 //             thread_exit(a);
 //     }
 // }
+
+sleeplock test;
+int ct = 0,c1=0,c2=0;
+
+void myFun() {
+	
+	while(1){
+		printf("inside 1st fun.\n");
+		acquiresleep(&test);
+		// sleep(1);
+		ct++;
+		c1++;
+		releasesleep(&test);
+		if(c1>15)
+			break;
+		if(c1%5==0)
+			printf("inside 2nd fun c1  = %d\n", c1);
+	}
+
+}
+
+void myF() {
+	// sleep(3);
+	while(1){
+		printf("inside 2nd fun\n" );
+		acquiresleep(&test);
+		// sleep(1);
+		ct++;
+		c2++;
+		releasesleep(&test);
+		if(c2>15)
+			break;
+		if(c2%5==0)
+			printf("inside 2nd fun c2  = %d\n", c2);
+	}
+
+}
 
 
 // int main() {

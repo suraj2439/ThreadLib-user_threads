@@ -16,8 +16,8 @@
 // of current running therads
 tid_list tid_table;
 
-int c;
-spinlock test;
+int c, c1, c2;
+sleeplock test;
 
 // insert thread_id node in beginning of list
 int tid_insert(node* nn, thread_id tid, int stack_size, void *stack_start) {
@@ -241,36 +241,51 @@ void thread_unlock(struct spinlock *lk){
     release(lk);
 }
 
+void init_mutex_thread_lock(struct sleeplock *lk){
+    initsleeplock(lk);
+}
+
+void thread_mutex_lock(struct sleeplock *lk){
+    acquiresleep(lk);
+}
+
+void thread_mutex_unlock(struct sleeplock *lk){
+    releasesleep(lk);
+}
+
+
+
 void myFun() {
-	int c1;
+	
 	while(1){
-		acquire(&test);
 		printf("inside 1st fun.\n");
+		acquiresleep(&test);
 		sleep(1);
 		c++;
 		c1++;
-		release(&test);
-		if(c1>1000000)
+		releasesleep(&test);
+		if(c1>15)
 			break;
+		if(c1%5==0)
+			printf("inside 2nd fun c1  = %d\n", c1);
 	}
-	printf("inside 2nd fun c1  = %d\n", c1);
 
 }
 
 void myF() {
 	// sleep(3);
-	int c2 = 0;
 	while(1){
-		acquire(&test);
-		printf("inside 2nd fun\n");
+		printf("inside 2nd fun\n" );
+		acquiresleep(&test);
 		sleep(1);
 		c++;
 		c2++;
-		release(&test);
-		if(c2>1000000)
+		releasesleep(&test);
+		if(c2>15)
 			break;
+		if(c2%5==0)
+			printf("inside 2nd fun c2  = %d\n", c2);
 	}
-	printf("inside 2nd fun c2  = %d\n", c2);
 
 }
 

@@ -237,10 +237,17 @@ void scheduler() {
         acquire(&thread_list.lock);
         node *next_proc = curr_running_proc->next;
         if(! next_proc) next_proc = thread_list.list;            // TODO wrong
-
+        
         while(next_proc->state != THREAD_RUNNABLE) {
             if(next_proc->next) next_proc = next_proc->next;
             else next_proc = thread_list.list;
+            // if(next_proc==curr_running_proc){
+            //     printf("%d\n", next_proc->state);
+            //     release(&thread_list.lock);
+            //     // printf("sleeping\n");
+            //     sleep(0.5);
+            //     acquire(&thread_list.lock);
+            // }
         }
         release(&thread_list.lock);
 
@@ -517,6 +524,8 @@ int thread_create(mThread *thread, mThread_attr *attr, void *routine, void *args
 
 
 int thread_join(mThread tid, void **retval) {
+	// if(! retval)
+	// 	return INVAL_INP;
     int found_flag = 0;
 
     acquire(&thread_list.lock);
@@ -536,7 +545,6 @@ int thread_join(mThread tid, void **retval) {
 
 	while(n->state != THREAD_TERMINATED)
 		;
-
     if(retval)
 	    *retval = n->ret_val;
     // cleanup(tid);
@@ -575,6 +583,17 @@ void thread_unlock(struct spinlock *lk){
     release(lk);
 }
 
+void init_mutex_thread_lock(struct sleeplock *lk){
+    initsleeplock(lk);
+}
+
+void thread_mutex_lock(struct sleeplock *lk){
+    acquiresleep(lk);
+}
+
+void thread_mutex_unlock(struct sleeplock *lk){
+    releasesleep(lk);
+}
 
 // void f11() {
 //     printf("inside first function\n");
@@ -608,6 +627,45 @@ void thread_unlock(struct spinlock *lk){
 //             // thread_exit(a);
 //     }
 // }
+
+sleeplock test;
+int c = 0,c1=0,c2=0;
+
+void myFun() {
+	
+	while(1){
+		printf("inside 1st fun.\n");
+		acquiresleep(&test);
+		// sleep(1);
+		c++;
+		c1++;
+    	printf("t1 => c=%d, c1=%d, c2=%d\n", c, c1, c2);
+		releasesleep(&test);
+		if(c1>15)
+			break;
+		if(c1%5==0)
+			printf("inside 2nd fun c1  = %d\n", c1);
+	}
+
+}
+
+void myF() {
+	// sleep(3);
+	while(1){
+		printf("inside 2nd fun\n" );
+		acquiresleep(&test);
+		// sleep(1);
+		c++;
+		c2++;
+    	printf("t2 => c=%d, c1=%d, c2=%d\n", c, c1, c2);
+		releasesleep(&test);
+		if(c2>15)
+			break;
+		if(c2%5==0)
+			printf("inside 2nd fun c2  = %d\n", c2);
+	}
+
+}
 
 // void f4() {
 //     int count = 0;

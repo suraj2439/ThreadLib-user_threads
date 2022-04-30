@@ -1,7 +1,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "many_many/many-many.h"
+#include "one_one/one-one.h"
 #include <time.h>
 
 #include <sys/time.h>
