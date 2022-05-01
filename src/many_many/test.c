@@ -255,7 +255,8 @@ void thread_funArgs_test() {
     thread_create(&t1, NULL, farg, (void*)&a);
     int *retVal = (int *)malloc(sizeof(int));
     thread_join(t1,  (void **)&retVal);
-    if(*retVal) TEST_SUCCESS
+    if(! retVal) TEST_FAILURE
+    else if(*retVal) TEST_SUCCESS
     else TEST_FAILURE
 }
 
@@ -412,13 +413,13 @@ int main() {
     init_thread_lock(&rwlock);
     init_thread_lock(&lock);
     init_thread_lock(&printfLock);
-    thread_kill_test();
+    // thread_kill_test();
     // thread_create_test();
     // thread_create(&t5, NULL, join_fun, NULL);
     
 
-    // unitTesting();
-    // robustTesting();
+    unitTesting();
+    robustTesting();
     // // readers_writers_test();
     // thread_join_test();
     // thread_lock_unlock_test();

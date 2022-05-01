@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-#include "one-one.h"
+#include "mthread.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -72,7 +72,6 @@ void acquiresleep(struct sleeplock *lk){
 		release(&lk->lk);
 		exit(1);
 	}
-	printf("before sys_futex wait %d\n", gettid());
 	
 	while(lk->locked==1){
 		release(&lk->lk);
@@ -81,11 +80,9 @@ void acquiresleep(struct sleeplock *lk){
 
 		// printf("inside while\n");
 	}
-	printf("out of sys_futex wait %d\n", gettid());
 	lk->locked = 1;
 	lk->tid = gettid();
 	release(&lk->lk);
-	printf("out of sys_futex wait %d and lock released\n", gettid());
 }
 
 void releasesleep(struct sleeplock *lk){
@@ -98,7 +95,6 @@ void releasesleep(struct sleeplock *lk){
 	lk->locked = 0;
 	lk->tid = -1;
     syscall(SYS_futex, lk->locked, FUTEX_WAKE, 1, NULL, NULL, 0);
-	printf("out of sys_futex wake\n");
 	release(&lk->lk);
 
 }

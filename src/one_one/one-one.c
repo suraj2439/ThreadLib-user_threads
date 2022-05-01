@@ -9,7 +9,7 @@
 #include <syscall.h>
 #include <sys/mman.h>
 #include <signal.h>
-#include "one-one.h"
+#include "mthread.h"
 #include "lock.h"
 
 // global tid tablef to store thread ids 
@@ -32,8 +32,8 @@ int tid_insert(node* nn, thread_id tid, int stack_size, void *stack_start) {
 	release(&tid_table.lock);
 }
 
+// use to clean the thread node after thread_join
 void cleanup(thread_id tid) {
-	// printf("given tid %ld\n", tid);
 	acquire(&tid_table.lock);
 	node *prev = NULL, *curr = tid_table.list;
 	while(curr && curr->tid != tid) {
