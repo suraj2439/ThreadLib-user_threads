@@ -1,12 +1,18 @@
 
+printf "ONE_ONE TESTING\n\n"
+
 cc one_one/one-one.c one_one/lock.c one_one/test.c
 for i in {0..9}
 do
    ./a.out $i
 done
+
+printf "\n\nPERFORMANCE TESTING\n"
 cc one_one/performance.c one_one/one-one.c one_one/lock.c
 ./a.out
 
+
+printf "\n\nMANY_ONE TESTING\n\n"
 
 cc many_one/many-one.c many_one/lock.c many_one/utils.c many_one/test.c
 for i in {0..9}
@@ -14,6 +20,7 @@ do
    ./a.out $i
 done
 
+printf "\n\nMANY_MANY TESTING\n\n"
 
 cc many_many/many-many.c many_many/lock.c many_many/utils.c many_many/test.c
 for i in {0..9}
