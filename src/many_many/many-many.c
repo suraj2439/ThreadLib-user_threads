@@ -123,7 +123,7 @@ void signal_handler_vtalarm() {
     // printf("inside vt signal handler\n");    
     // disable alarm
     ualarm(0,0);
-
+    printf("vtalarm handler\n");
     // switch context to scheduler
     int value = sigsetjmp(*(curr_running_proc_array[get_curr_kthread_index()]->t_context), 1);
     if(! value) {
@@ -138,6 +138,7 @@ int execute_me_oo(void *new_node) {
 	node *nn = (node*)new_node;
     if(nn->state==THREAD_EMBRYO)
 	    nn->state = THREAD_RUNNING;
+    printf("changed from embryo to running\n");
 
     // printf("in execute me");
     // if(nn->wrapper_fun->args)
@@ -213,13 +214,10 @@ node* search_thread(thread_id tid) {
 
 // insert thread_id node in beginning of list
 void thread_insert(node* nn) {
-    printf("in thread insert\n");
     acquire(&thread_list.lock);
-    printf("acquired lock\n");
 	nn->next = thread_list.list;
 	thread_list.list = nn;
     // traverse();
-    printf("tid insert done\n");
     release(&thread_list.lock);
 }
 
@@ -240,7 +238,6 @@ void scheduler() {
 
         if(curr_running_proc->state == THREAD_RUNNING)
             curr_running_proc->state = THREAD_RUNNABLE;
-        // printf("inside scheduler2\n");
             
         // point next_proc to next thread of currently running process
         acquire(&thread_list.lock);
@@ -333,6 +330,7 @@ int thread_kill(mThread thread, int signal){
             if(! n) return NO_THREAD_FOUND;
             printf("set terminated\n");
             acquire(&thread_list.lock);
+            printf("set terminate done\n");
             n->state = THREAD_TERMINATED;
             traverse();       //todo : kill immediately
             release(&thread_list.lock);
@@ -544,7 +542,7 @@ int thread_join(mThread tid, void **retval) {
 	// 	return INVAL_INP;
     int found_flag = 0;
 
-    printf("acquired\n");
+    // printf("acquired\n");
     acquire(&thread_list.lock);
 	node* n = thread_list.list;
 
@@ -556,7 +554,7 @@ int thread_join(mThread tid, void **retval) {
         n = n->next;
     }
     release(&thread_list.lock);
-    printf("rel done\n");
+    // printf("rel done\n");
 
 	if(!n)
 		return NO_THREAD_FOUND;
@@ -565,7 +563,7 @@ int thread_join(mThread tid, void **retval) {
     traverse();
 	while(n->state != THREAD_TERMINATED)
 		;
-    printf("dddd\n");
+    // printf("dddd\n");
     if(retval)
 	    *retval = n->ret_val;
     // cleanup(tid);

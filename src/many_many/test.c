@@ -413,7 +413,7 @@ int main() {
     init_thread_lock(&lock);
     init_thread_lock(&printfLock);
     thread_kill_test();
-    thread_create_test();
+    // thread_create_test();
     // thread_create(&t5, NULL, join_fun, NULL);
     
 
