@@ -69,6 +69,82 @@ void infLoop() {
     return;
 }
 
+
+int d = 0;
+sleeplock test2;
+
+void mutex_lockFun1() {
+    int *ret = (int *)malloc(sizeof(int));
+	printf("inside 1st fun.\n");
+	int d1;
+	while(1) {
+		thread_mutex_lock(&test2);
+		d++;
+		d1++;
+		thread_mutex_unlock(&test2);
+		if(d1>50000)
+			break;
+	}
+	printf("inside 2nd fun c1  = %d\n", d1);
+    *ret = d1;
+    thread_exit(ret);
+}
+
+
+void mutex_lockFun2() {
+    int *ret = (int *)malloc(sizeof(int));
+	int d2 = 0;
+	while(1) {
+		thread_mutex_lock(&test2);
+		d++;
+		d2++;
+		thread_mutex_unlock(&test2);
+		if(d2>50000)
+			break;
+	}
+	printf("inside 2nd fun c2  = %d\n", d2);
+    *ret = d2;
+    thread_exit(ret);
+}
+
+
+void thread_lock_unlock_test() {
+    printf("Testing thread_lock() and thread_unlock().");
+    mThread t1, t2;
+    thread_create(&t1, NULL, lockFun1, NULL);
+    thread_create(&t2, NULL, lockFun2, NULL);
+    void **tmp;
+    int *c1 = (int *)malloc(sizeof(int));
+    int *c2 = (int *)malloc(sizeof(int));
+    int *retVal = (int *)malloc(sizeof(int));
+    thread_join(t1, (void **)&c1);
+    thread_join(t2, (void **)&c2);
+
+    printf("value of c = %d\n", c);
+    if(*c1 + *c2 == c)
+        TEST_SUCCESS
+    else TEST_FAILURE
+}
+
+void thread_mutex_lock_unlock_test() {
+    printf("Testing thread_mutex_lock() and thread_mutex_unlock().");
+    mThread t1, t2;
+    thread_create(&t1, NULL, mutex_lockFun1, NULL);
+    thread_create(&t2, NULL, mutex_lockFun2, NULL);
+    void **tmp;
+    int *c1 = (int *)malloc(sizeof(int));
+    int *c2 = (int *)malloc(sizeof(int));
+    int *retVal = (int *)malloc(sizeof(int));
+    thread_join(t1, (void **)&c1);
+    thread_join(t2, (void **)&c2);
+
+    printf("value of c = %d\n", d);
+    if(*c1 + *c2 == d)
+        TEST_SUCCESS
+    else TEST_FAILURE
+}
+
+
 void thread_create_test() {
     int cnt = 30;
     printf("Testing thread_create() for %d threads.\n", cnt);
@@ -374,8 +450,8 @@ void robustTesting(int testNo) {
             thread_create_robust();
             return;
         case 1:
-            // line();
-            // thread_join_robust();
+            line();
+            thread_join_robust();
             return;
         case 2:
             line();
