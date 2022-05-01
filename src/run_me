@@ -4,18 +4,21 @@ for i in {0..9}
 do
    ./a.out $i
 done
-cc perfo
+cc one_one/performance.c one_one/one-one.c one_one/lock.c
+./a.out
 
 
-# cc many_one/many-one.c many_one/lock.c many_one/utils.c many_one/test.c
-# for i in {0..9}
-# do
-#    ./a.out $i
-# done
+cc many_one/many-one.c many_one/lock.c many_one/utils.c many_one/test.c
+for i in {0..9}
+do
+   ./a.out $i
+done
 
 
-# cc many_many/many-many.c many_many/lock.c many_many/utils.c many_many/test.c
-# for i in {0..9}
-# do
-#    ./a.out $i
-# done
+cc many_many/many-many.c many_many/lock.c many_many/utils.c many_many/test.c
+for i in {0..9}
+do
+   ./a.out $i
+done
+
+

@@ -339,8 +339,8 @@ void unitTesting(int testNo) {
             // thread_attr_test();
             return;
         case 2:
-            line();
-            thread_join_test();
+            // line();
+            // thread_join_test();
             return;
         case 3:
             line();
@@ -359,7 +359,7 @@ void unitTesting(int testNo) {
             thread_lock_unlock_test();
             return;        
         case 7:
-            line();
+            // line();
             // thread_mutex_lock_unlock_test();
             return;        
         default:
@@ -374,8 +374,8 @@ void robustTesting(int testNo) {
             thread_create_robust();
             return;
         case 1:
-            line();
-            thread_join_robust();
+            // line();
+            // thread_join_robust();
             return;
         case 2:
             line();

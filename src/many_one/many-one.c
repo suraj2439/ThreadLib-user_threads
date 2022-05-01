@@ -446,18 +446,6 @@ void f22() {
     }
 }
 
-// void f3() {
-//     int count = 0;
-//     void *a;
-//     while(1){
-// 	    printf("inside 3rd function\n");
-//         sleep(1);
-//         count+=1;
-//         if(count > 4)
-//             thread_exit(a);
-//     }
-// }
-
 sleeplock test;
 int ct = 0,c1=0,c2=0;
 
@@ -494,43 +482,3 @@ void myF() {
 	}
 
 }
-
-
-// int main() {
-//     mThread td;
-// 	mThread tt, tm;
-
-// 	// init_many_one(); 
-
-//     mThread_attr *attr;
-//     init_mThread_attr(&attr);
-// 	thread_create(&td, attr, f11, NULL);
-//     thread_create(&tt, attr, f22, NULL);
-//     // thread_create(&tm, NULL, f3, NULL);
-
-//     // printf("sending signal to %ld\n", tt);
-
-	
-//     // node* t = thread_list.list;
-    
-//     // void **a;
-//     // printf("%ld\n", tm);
-//     // exit(1);
-//     // thread_join(tm, a);
-//     printf("join success");
-//     // traverse();
-//     // return 0;
-//     // sleep(1);
-
-//     // thread_kill(td, SIGTERM);
-//     for(int i=0; i<10; i++)
-//         printf("inside main fun waiting for cont.\n");
-//     // thread_kill(td, SIGCONT);
-
-
-//     while(1){
-//         sleep(1);
-// 	    printf("inside main fun.\n");
-//     }
-//     return 0;
-// }

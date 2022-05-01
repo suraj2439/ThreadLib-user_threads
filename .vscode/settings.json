@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "unistd.h": "c",
+        "lock.h": "c",
+        "many-many.h": "c"
+    }
+}
