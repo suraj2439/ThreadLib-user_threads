@@ -1,10 +1,12 @@
 #!/bin/sh
 
-a=0
+b=0
 
 cc test.c many-many.c lock.c utils.c
-while [ $a -lt 10 ]
+while [ $b -lt 100 ]
 do
+   let "b++"
+   echo "succesfull  executed ",$b," times"
    ./a.out
    if [ $? -eq 139 ]; then
     exit 1

@@ -148,13 +148,13 @@ int execute_me_oo(void *new_node) {
     nn->kernel_tid = gettid();
 	nn->wrapper_fun->fun(nn->wrapper_fun->args);
     // printf("in execute end");
-	// nn->state = THREAD_TERMINATED;
-    thread_exit(NULL);
+	nn->state = THREAD_TERMINATED;
+    // thread_exit(NULL);
 
 	// printf("termination done %d\n", nn->kthread_index);
     // exit(1);
     // return 0;
-	// siglongjmp(*(scheduler_node_array[nn->kthread_index].t_context), 2);
+	siglongjmp(*(scheduler_node_array[nn->kthread_index].t_context), 2);
 }
 
 int execute_me_mo() {
@@ -175,13 +175,13 @@ int execute_me_mo() {
     nn->kernel_tid = gettid();
 	nn->wrapper_fun->fun(nn->wrapper_fun->args);
     // printf("execute me end\n");
-	// nn->state = THREAD_TERMINATED;
-    thread_exit(NULL);
+	nn->state = THREAD_TERMINATED;
+    // thread_exit(NULL);
 
 	// printf("termination done\n");
     //TODO: IMP: don't call scheduler() directly,instead use long jump
     // siglongjmp(*(scheduler_node.t_context), 2);
-    // siglongjmp(*(scheduler_node_array[nn->kthread_index].t_context), 2);
+    siglongjmp(*(scheduler_node_array[nn->kthread_index].t_context), 2);
 	return 0;
 }
 
@@ -213,14 +213,14 @@ node* search_thread(thread_id tid) {
 
 // insert thread_id node in beginning of list
 void thread_insert(node* nn) {
-    printf("in thread insert\n");
+    // printf("in thread insert\n");
     acquire(&thread_list.lock);
-    printf("acquired lock\n");
+    // printf("acquired lock\n");
 	nn->next = thread_list.list;
 	thread_list.list = nn;
     // traverse();
-    printf("tid insert done\n");
     release(&thread_list.lock);
+    // printf("tid insert done\n");
 }
 
 
@@ -235,8 +235,8 @@ void scheduler() {
         node* curr_running_proc = curr_running_proc_array[index];
         curr_running_proc_array[index] = &(scheduler_node_array[index]);
         // printf("inside scheduler\n");
-        printf("tis %ld %d\n", curr_running_proc->tid, curr_running_proc->state);
-        traverse();
+        // printf("tis %ld %d\n", curr_running_proc->tid, curr_running_proc->state);
+        // traverse();
 
         if(curr_running_proc->state == THREAD_RUNNING)
             curr_running_proc->state = THREAD_RUNNABLE;
@@ -251,21 +251,24 @@ void scheduler() {
             if(next_proc->next) next_proc = next_proc->next;
             else next_proc = thread_list.list;
             // if(next_proc==curr_running_proc){
-                printf("%d %d gggggggggggggggggggggggggggggggggggggggg\n ", next_proc->state, gettid());
+                // printf("%d %d gggggggggggggggggggggggggggggggggggggggg\n ", next_proc->state, gettid());
                 release(&thread_list.lock);
-                printf("sleeping\n");
+                // printf("sleeping\n");
                 sleep(0.5);
                 acquire(&thread_list.lock);
+                // printf("lock acquired again\n");
             // }
         }
-        release(&thread_list.lock);
 
-        curr_running_proc_array[index] = next_proc;
+        next_proc->kthread_index = index;
         next_proc->state = THREAD_RUNNING;
+        next_proc->kernel_tid = gettid();
+        release(&thread_list.lock);
+        curr_running_proc_array[index] = next_proc;
+
         enable_alarm_signal();
         ualarm(ALARM_TIME, 0);
         // printf("%ld %ld %d gg ", next_proc->kernel_tid, next_proc->tid, next_proc->kthread_index);
-        next_proc->kernel_tid = gettid();
         siglongjmp(*(next_proc->t_context), 2);
     }
     
@@ -306,7 +309,7 @@ void init_many_many() {     // TODO call only once in therad_create
     signal(SIGVTALRM, signal_handler_vtalarm);
     signal(SIGUSR2, signal_handler_usr2);
     // traverse();
-    printf("init done\n");
+    // printf("init done\n");
     // ualarm(K_ALARM_TIME, 0);
 }
 
@@ -331,10 +334,8 @@ int thread_kill(mThread thread, int signal){
         else {
             node* n = search_thread(thread);
             if(! n) return NO_THREAD_FOUND;
-            printf("set terminated\n");
             acquire(&thread_list.lock);
             n->state = THREAD_TERMINATED;
-            traverse();       //todo : kill immediately
             release(&thread_list.lock);
             // traverse();
             return 0;
@@ -360,7 +361,7 @@ int thread_kill(mThread thread, int signal){
 
             insert_sig_node(n->sig_info, signal_node);
             n->sig_info->rem_sig_cnt++;
-            printf("inside thread kill %d %d\n", n->sig_info->signal_list->t_signal, signal);
+            // printf("inside thread kill %d %d\n", n->sig_info->signal_list->t_signal, signal);
         }
     }
     ualarm(ALARM_TIME, 0);
@@ -544,7 +545,7 @@ int thread_join(mThread tid, void **retval) {
 	// 	return INVAL_INP;
     int found_flag = 0;
 
-    printf("acquired\n");
+    // printf("acquired\n");
     acquire(&thread_list.lock);
 	node* n = thread_list.list;
 
@@ -556,16 +557,16 @@ int thread_join(mThread tid, void **retval) {
         n = n->next;
     }
     release(&thread_list.lock);
-    printf("rel done\n");
+    // printf("rel done\n");
 
 	if(!n)
 		return NO_THREAD_FOUND;
 
-    printf("thread id %d %d\n", tid, n->tid);
-    traverse();
+    // printf("thread id %ld %ld\n", tid, n->tid);
+    // traverse();
 	while(n->state != THREAD_TERMINATED)
 		;
-    printf("dddd\n");
+    // printf("dddd\n");
     if(retval)
 	    *retval = n->ret_val;
     // cleanup(tid);
@@ -582,10 +583,11 @@ void thread_exit(void *retval) {
     nn = thread_list.list;
     while(nn->state != THREAD_RUNNING && nn->kernel_tid == gettid())
         nn = nn->next;
-    release(&thread_list.lock);
 
 	nn->ret_val = retval;
 	nn->state = THREAD_TERMINATED;
+    release(&thread_list.lock);
+    
     siglongjmp(*(scheduler_node_array[index].t_context), 2);
     return;
 
