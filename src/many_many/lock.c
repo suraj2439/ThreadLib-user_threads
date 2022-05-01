@@ -70,7 +70,7 @@ void release(struct spinlock *lk){
     
     thread_id curr_calling_ktid = get_calling_ktid();
 
-	printf("s2 \n");
+	// printf("s2 \n");
 	if(lk->locked==0 || (lk->tid != curr_calling_ktid)){
     	// printf("release lktid = %ld, and lk->tid = %ld\n", lk->tid, curr_running_proc_array->tid);
 
@@ -80,10 +80,10 @@ void release(struct spinlock *lk){
 
 	lk->tid = -1;
 
-	printf("s3 \n");
+	// printf("s3 \n");
 	asm volatile("movl $0, %0" : "+m" (lk->locked) : );
     enable_alarm_signal();
-	printf("s4 \n");
+	// printf("s4 \n");
 }
 
 

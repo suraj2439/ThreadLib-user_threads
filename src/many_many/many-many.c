@@ -136,7 +136,8 @@ void signal_handler_vtalarm() {
 
 int execute_me_oo(void *new_node) {
 	node *nn = (node*)new_node;
-	nn->state = THREAD_RUNNING;
+    if(nn->state==THREAD_EMBRYO)
+	    nn->state = THREAD_RUNNING;
 
     // printf("in execute me");
     // if(nn->wrapper_fun->args)
@@ -164,9 +165,10 @@ int execute_me_mo() {
     //         break;
     // }
     acquire(&thread_list.lock);
-    node *nn = thread_list.list;
-    while(nn->state != THREAD_RUNNING)
-        nn = nn->next;
+    node *nn = curr_running_proc_array[get_curr_kthread_index()];
+    printf("state = %d %ld", nn->state, nn->tid);
+    // while(nn->state != THREAD_RUNNING)
+    //     nn = nn->next;
     release(&thread_list.lock);
     
 	// printf("inside execute me\n");
@@ -211,9 +213,13 @@ node* search_thread(thread_id tid) {
 
 // insert thread_id node in beginning of list
 void thread_insert(node* nn) {
+    printf("in thread insert\n");
     acquire(&thread_list.lock);
+    printf("acquired lock\n");
 	nn->next = thread_list.list;
 	thread_list.list = nn;
+    // traverse();
+    printf("tid insert done\n");
     release(&thread_list.lock);
 }
 
@@ -227,7 +233,10 @@ void scheduler() {
         //   printf("inside scheduler2 %d \n", index);
 
         node* curr_running_proc = curr_running_proc_array[index];
+        curr_running_proc_array[index] = &(scheduler_node_array[index]);
         // printf("inside scheduler\n");
+        printf("tis %ld %d\n", curr_running_proc->tid, curr_running_proc->state);
+        traverse();
 
         if(curr_running_proc->state == THREAD_RUNNING)
             curr_running_proc->state = THREAD_RUNNABLE;
@@ -242,17 +251,16 @@ void scheduler() {
             if(next_proc->next) next_proc = next_proc->next;
             else next_proc = thread_list.list;
             // if(next_proc==curr_running_proc){
-            //     printf("%d\n", next_proc->state);
-            //     release(&thread_list.lock);
-            //     // printf("sleeping\n");
-            //     sleep(0.5);
-            //     acquire(&thread_list.lock);
+                printf("%d %d gggggggggggggggggggggggggggggggggggggggg\n ", next_proc->state, gettid());
+                release(&thread_list.lock);
+                printf("sleeping\n");
+                sleep(0.5);
+                acquire(&thread_list.lock);
             // }
         }
         release(&thread_list.lock);
 
         curr_running_proc_array[index] = next_proc;
-
         next_proc->state = THREAD_RUNNING;
         enable_alarm_signal();
         ualarm(ALARM_TIME, 0);
@@ -268,6 +276,7 @@ void signal_handler_usr2() {
 }
 
 void init_many_many() {     // TODO call only once in therad_create
+    thread_list.list = NULL;
     scheduler_node_array = (node*)malloc(sizeof(node)*NO_OF_KTHREADS);
     for(int i=0; i<NO_OF_KTHREADS; i++){
         
@@ -285,9 +294,9 @@ void init_many_many() {     // TODO call only once in therad_create
         (*(scheduler_node_array[i].t_context))->__jmpbuf[7] = mangle((long int)scheduler_node_array[i].wrapper_fun->fun);
     }
     main_ktid = gettid();
-    acquire(&thread_list.lock);
-    thread_list.list = (node*)malloc(sizeof(node)*NO_OF_KTHREADS);
-    release(&thread_list.lock);
+    // acquire(&thread_list.lock);
+    // thread_list.list = (node*)malloc(sizeof(node)*NO_OF_KTHREADS);
+    // release(&thread_list.lock);
 
     curr_running_proc_array = (node**)malloc(sizeof(node*) * NO_OF_KTHREADS);
     for(int i=0; i<NO_OF_KTHREADS; i++)
@@ -296,7 +305,8 @@ void init_many_many() {     // TODO call only once in therad_create
     signal(SIGALRM, signal_handler_alarm);
     signal(SIGVTALRM, signal_handler_vtalarm);
     signal(SIGUSR2, signal_handler_usr2);
-
+    // traverse();
+    printf("init done\n");
     // ualarm(K_ALARM_TIME, 0);
 }
 
@@ -321,7 +331,12 @@ int thread_kill(mThread thread, int signal){
         else {
             node* n = search_thread(thread);
             if(! n) return NO_THREAD_FOUND;
-            n->state = THREAD_TERMINATED;       //todo : kill immediately
+            printf("set terminated\n");
+            acquire(&thread_list.lock);
+            n->state = THREAD_TERMINATED;
+            traverse();       //todo : kill immediately
+            release(&thread_list.lock);
+            // traverse();
             return 0;
         }
     }
@@ -453,7 +468,7 @@ int thread_create(mThread *thread, mThread_attr *attr, void *routine, void *args
     int guardSize, stackSize;
 	void *stack;
 	if(attr) {
-		if(guardSize) guardSize = attr->guardSize;
+		if(attr->guardSize) guardSize = attr->guardSize;
 		else guardSize = GUARD_PAGE_SIZE;
 		
         if(attr->stackSize && !attr->stack) stackSize = attr->stackSize;
@@ -503,15 +518,16 @@ int thread_create(mThread *thread, mThread_attr *attr, void *routine, void *args
     if(t_node->tid < NO_OF_KTHREADS) {
         // printf("clone called\n");
         curr_running_proc_array[t_node->tid] = t_node;
+        t_node->state = THREAD_EMBRYO;
         thread_insert(t_node);
         // kthread_index[t_node->tid] = t_node;
-        kthread_index[t_node->tid] = clone(execute_me_oo, t_node->stack_start + DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE, CLONE_FLAGS, (void *)t_node);	
+        kthread_index[t_node->tid] = clone(execute_me_oo, t_node->stack_start + stackSize + guardSize, CLONE_FLAGS, (void *)t_node);	
         if(kthread_index[t_node->tid] == -1) 
 		    return CLONE_FAILED;
         return 0;
     }
     else {
-        (*(t_node->t_context))->__jmpbuf[6] = mangle((long int)t_node->stack_start + DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE );
+        (*(t_node->t_context))->__jmpbuf[6] = mangle((long int)t_node->stack_start + stackSize + guardSize );
         (*(t_node->t_context))->__jmpbuf[7] = mangle((long int)execute_me_mo);
         
         t_node->state = THREAD_RUNNABLE;
@@ -528,6 +544,7 @@ int thread_join(mThread tid, void **retval) {
 	// 	return INVAL_INP;
     int found_flag = 0;
 
+    printf("acquired\n");
     acquire(&thread_list.lock);
 	node* n = thread_list.list;
 
@@ -539,12 +556,16 @@ int thread_join(mThread tid, void **retval) {
         n = n->next;
     }
     release(&thread_list.lock);
+    printf("rel done\n");
 
 	if(!n)
 		return NO_THREAD_FOUND;
 
+    printf("thread id %d %d\n", tid, n->tid);
+    traverse();
 	while(n->state != THREAD_TERMINATED)
 		;
+    printf("dddd\n");
     if(retval)
 	    *retval = n->ret_val;
     // cleanup(tid);
@@ -628,44 +649,44 @@ void thread_mutex_unlock(struct sleeplock *lk){
 //     }
 // }
 
-sleeplock test;
-int c = 0,c1=0,c2=0;
+// sleeplock test;
+// int c = 0,c1=0,c2=0;
 
-void myFun() {
+// void myFun() {
 	
-	while(1){
-		printf("inside 1st fun.\n");
-		acquiresleep(&test);
-		// sleep(1);
-		c++;
-		c1++;
-    	printf("t1 => c=%d, c1=%d, c2=%d\n", c, c1, c2);
-		releasesleep(&test);
-		if(c1>15)
-			break;
-		if(c1%5==0)
-			printf("inside 2nd fun c1  = %d\n", c1);
-	}
+// 	while(1){
+// 		printf("inside 1st fun.\n");
+// 		acquiresleep(&test);
+// 		// sleep(1);
+// 		c++;
+// 		c1++;
+//     	printf("t1 => c=%d, c1=%d, c2=%d\n", c, c1, c2);
+// 		releasesleep(&test);
+// 		if(c1>15)
+// 			break;
+// 		if(c1%5==0)
+// 			printf("inside 2nd fun c1  = %d\n", c1);
+// 	}
 
-}
+// }
 
-void myF() {
-	// sleep(3);
-	while(1){
-		printf("inside 2nd fun\n" );
-		acquiresleep(&test);
-		// sleep(1);
-		c++;
-		c2++;
-    	printf("t2 => c=%d, c1=%d, c2=%d\n", c, c1, c2);
-		releasesleep(&test);
-		if(c2>15)
-			break;
-		if(c2%5==0)
-			printf("inside 2nd fun c2  = %d\n", c2);
-	}
+// void myF() {
+// 	// sleep(3);
+// 	while(1){
+// 		printf("inside 2nd fun\n" );
+// 		acquiresleep(&test);
+// 		// sleep(1);
+// 		c++;
+// 		c2++;
+//     	printf("t2 => c=%d, c1=%d, c2=%d\n", c, c1, c2);
+// 		releasesleep(&test);
+// 		if(c2>15)
+// 			break;
+// 		if(c2%5==0)
+// 			printf("inside 2nd fun c2  = %d\n", c2);
+// 	}
 
-}
+// }
 
 // void f4() {
 //     int count = 0;

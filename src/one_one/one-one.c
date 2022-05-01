@@ -12,7 +12,7 @@
 #include "one-one.h"
 #include "lock.h"
 
-// global tid table to store thread ids 
+// global tid tablef to store thread ids 
 // of current running therads
 tid_list tid_table;
 
@@ -51,7 +51,7 @@ void cleanup(thread_id tid) {
 		tid_table.list = tid_table.list->next;
 		release(&tid_table.lock);
 		if(tmp->stack_size)		// stack size not 0 means stack is not given by user
-			munmap(tmp, DEFAULT_STACK_SIZE + GUARD_PAGE_SIZE);
+			munmap(tmp, tmp->stack_size);
 		free(tmp->wrapper_fun);
 		// free(tmp);
 		return;
@@ -177,7 +177,7 @@ int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void
 	void *stack;
 	if(attr) {
 		// if guardSize not equal to zero
-		if(guardSize) guardSize = attr->guardSize;
+		if(attr->guardSize) guardSize = attr->guardSize;
 		else guardSize = GUARD_PAGE_SIZE;
 
 		// if stack size is given by user, use that stack size else use default
@@ -224,7 +224,7 @@ int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void
 	*thread = clone(execute_me, stack + stackSize + guardSize, CLONE_FLAGS, (void *)new_node);
 	if(*thread == -1) 
 		return CLONE_FAILED;
-	tid_insert(new_node,*thread, stackSize, stack);
+	tid_insert(new_node,*thread, stackSize + guardSize, stack);
 
 	return 0;
 }

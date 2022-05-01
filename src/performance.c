@@ -14,10 +14,10 @@ long getMicrotime(){
 }
 
 // maximum size of matrix
-#define MAX 1000
+#define MAX 100
  
 // maximum number of threads
-#define MAX_THREAD 1000
+#define MAX_THREAD 100
  
 int matA[MAX][MAX];
 int matB[MAX][MAX];

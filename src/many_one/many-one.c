@@ -246,7 +246,7 @@ int thread_create(mThread *thread, const mThread_attr *attr, void *routine, void
     int guardSize, stackSize;
 	void *stack;
 	if(attr) {
-		if(guardSize) guardSize = attr->guardSize;
+		if(attr->guardSize) guardSize = attr->guardSize;
 		else guardSize = GUARD_PAGE_SIZE;
 		
         if(attr->stackSize && !attr->stack) stackSize = attr->stackSize;

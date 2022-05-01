@@ -1,0 +1,13 @@
+#!/bin/sh
+
+a=0
+
+cc test.c many-many.c lock.c utils.c
+while [ $a -lt 10 ]
+do
+   ./a.out
+   if [ $? -eq 139 ]; then
+    exit 1
+   fi
+done
+

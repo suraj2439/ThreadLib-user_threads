@@ -93,10 +93,13 @@ void f2() {
 void simpleLoop() {
     int count = 0;
     for(int i = 0; i < 1000; i++) count++;
+    return;
 }
 
 void infLoop() {
-    while(1);
+    while(1)
+        sleep(1);
+    return;
 }
 
 void thread_create_test() {
@@ -217,16 +220,17 @@ void thread_exit_test() {
 void thread_kill_test() {
     printf("Testing thread_kill()\n\n");
     mThread t1, t2, t3;
-    printf("Sending a signal to a running thread\n");
-    thread_create(&t1, NULL, simpleLoop, NULL);
-    int ret = thread_kill(t1, SIGUSR2);
-    if (ret != -1) TEST_SUCCESS
-    else TEST_FAILURE
+
+    // printf("Sending a signal to a running thread\n");
+    // thread_create(&t1, NULL, simpleLoop, NULL);
+    // int ret = thread_kill(t1, SIGUSR2);
+    // if (ret != -1) TEST_SUCCESS
+    // else TEST_FAILURE
 
     printf("\nSending a process wide signal\n");
     thread_create(&t3, NULL, infLoop, NULL);
     printf("Kill the infinite routine(only this, thread specific ==> SIGTERM)\n");
-    ret = thread_kill(t3, SIGTERM);
+    int ret = thread_kill(t3, SIGTERM);
     thread_join(t3, NULL);
     printf("Join on this routine, join success which shows thread is killed.\n");
     if (ret == 0) TEST_SUCCESS
@@ -351,13 +355,13 @@ void thread_lock_unlock_test() {
 
 void unitTesting() {
     line();
+    thread_kill_test();     // TODO seg fault , tmp soln bring to bottom
+    line();
     printf("\nPERFORMING UNIT TESTING TO CHECK BASIC FEATURES.\n");
     line();
     thread_create_test();
     line();
     thread_join_test();
-    line();
-    // thread_kill_test();     // TODO seg fault , tmp soln bring to bottom
     line();
     thread_exit_test();
     line();
@@ -389,8 +393,8 @@ void tmpfun2() {
 
 int main() {
     mThread t1, t2, t3, t4, t5;
-    thread_create(&t1, NULL, tmpfun1, NULL);
-    thread_create(&t2, NULL, tmpfun2, NULL);
+    // thread_create(&t1, NULL, tmpfun1, NULL);
+    // thread_create(&t2, NULL, tmpfun2, NULL);
     // thread_create(&t3, NULL, join_fun, NULL);
     // thread_create(&t4, NULL, join_fun, NULL);
     // thread_create(&t5, NULL, join_fun, NULL);
@@ -408,9 +412,13 @@ int main() {
     init_thread_lock(&rwlock);
     init_thread_lock(&lock);
     init_thread_lock(&printfLock);
+    thread_kill_test();
+    thread_create_test();
+    // thread_create(&t5, NULL, join_fun, NULL);
+    
 
-    unitTesting();
-    robustTesting();
+    // unitTesting();
+    // robustTesting();
     // // readers_writers_test();
     // thread_join_test();
     // thread_lock_unlock_test();
