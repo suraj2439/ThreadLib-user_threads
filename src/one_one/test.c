@@ -15,41 +15,6 @@ spinlock lock;  // TODO lock init
 spinlock rwlock;
 int readers = 0;
 
-void frw1()
-{
-    thread_lock(&lock);
-    readers += 1;
-    if (readers == 1)
-    {
-        printf("Acquired writers lock\n");
-        thread_lock(&rwlock);
-    }
-    thread_unlock(&lock);
-    printf("Reader process in\n");
-    thread_lock(&lock);
-    readers -= 1;
-    if (readers == 0)
-    {
-        thread_unlock(&rwlock);
-    }
-    thread_unlock(&lock);
-}
-
-void frw2()
-{
-    thread_lock(&rwlock);
-    printf("Writer process in\n");
-    thread_unlock(&rwlock);
-}
-
-void readers_writers_test() {
-    mThread t1, t2;
-    thread_create(&t1, NULL, frw1, NULL);
-    thread_create(&t2, NULL, frw2, NULL);
-    thread_join(t2, NULL);
-    thread_join(t1, NULL);
-}
-
 void line() {
     printf("\n");
     for(int i = 0; i < 100; i++) 
@@ -63,7 +28,7 @@ void emptyfun() {
 void join_fun() {
     for(int i = 0; i < 3; i++) 
         sleep(0.5);
-    printf("fun finished\n");
+    // printf("fun finished\n");
 }
 
 void f1() {
@@ -110,7 +75,7 @@ void thread_join_test() {
     printf("creating %d threads.\n", cnt);
     for (int i = 0; i < cnt; i++) {
         if (thread_create(&t[i], NULL, join_fun, NULL) == 0) {
-            printf("Thread %d created successfully with id %ld\n", i, t[i]);
+            // printf("Thread %d created successfully with id %ld\n", i, t[i]);
             s++;
         }
         else {

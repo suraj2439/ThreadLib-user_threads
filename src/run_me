@@ -1,19 +1,20 @@
 
-# cc one_one/one-one.c one_one/lock.c one_one/test.c
+cc one_one/one-one.c one_one/lock.c one_one/test.c
+for i in {0..9}
+do
+   ./a.out $i
+done
+cc perfo
+
+
+# cc many_one/many-one.c many_one/lock.c many_one/utils.c many_one/test.c
 # for i in {0..9}
 # do
 #    ./a.out $i
 # done
 
 
-cc many_one/many-one.c many_one/lock.c many_one/utils.c many_one/test.c
-for i in {0..9}
-do
-   ./a.out $i
-done
-
-
-# cc many_many/many_many.c many_many/lock.c many_many/utils.c test.c
+# cc many_many/many-many.c many_many/lock.c many_many/utils.c many_many/test.c
 # for i in {0..9}
 # do
 #    ./a.out $i
