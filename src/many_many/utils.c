@@ -5,7 +5,8 @@
 #include <unistd.h>
 #include <stdio.h>
 
-extern int kthread_index[NO_OF_KTHREADS];
+extern int* kthread_index;
+extern int no_of_kthreads;
 
 // Code reference : https://stackoverflow.com/questions/69148708/alternative-to-mangling-jmp-buf-in-c-for-a-context-switch
 long int mangle(long int p) {
@@ -42,7 +43,7 @@ void disable_alarm_signal() {
 int get_curr_kthread_index() {
     thread_id curr_ktid = gettid();
     // printf("kernel thred id %ld\n", curr_ktid);
-    for(int i = 0; i < NO_OF_KTHREADS; i++) {
+    for(int i = 0; i < no_of_kthreads; i++) {
         // printf("array k thred id %d\n", kthread_index[i]);
 
         if(curr_ktid == kthread_index[i])

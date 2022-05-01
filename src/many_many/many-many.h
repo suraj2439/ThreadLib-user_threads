@@ -85,6 +85,7 @@ void thread_exit(void *retval);
 // The thread_kill() function sends the signal sig to thread, a thread in the same process as the caller
 int thread_kill(mThread thread, int signal);
 
+void set_no_of_kthreads(int num);
 
 void init_thread_lock(struct spinlock *lk);
 void thread_lock(struct spinlock *lk);

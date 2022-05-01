@@ -16,6 +16,9 @@
 node_list thread_list;
 int alarm_index = -1;
 thread_id main_ktid;
+int no_of_kthreads = NO_OF_KTHREADS;
+static int is_init_done = 0;
+
 
 void scheduler();
 void thread_exit(void *retval);
@@ -23,7 +26,7 @@ void thread_exit(void *retval);
 
 node* scheduler_node_array;
 node** curr_running_proc_array;
-int kthread_index[NO_OF_KTHREADS];
+int* kthread_index;
 
 void traverse() {
     node *nn = thread_list.list;
@@ -37,7 +40,7 @@ void traverse() {
 }
 
 void cleanup(thread_id tid) {
-	printf("given tid %ld\n", tid);
+	// printf("given tid %ld\n", tid);
 	// acquire(&thread_list.lock);
 	node *prev = NULL, *curr = thread_list.list;
 	while(curr && curr->tid != tid) {
@@ -72,7 +75,7 @@ void cleanup(thread_id tid) {
 }
 
 void cleanupAll() {
-    printf("in exit\n");
+    // printf("in exit\n");
     acquire(&thread_list.lock);
     // kill(getpid(), SIGKILL);
     if(thread_list.list == NULL) printf("null thread list\n");
@@ -80,7 +83,7 @@ void cleanupAll() {
         // traverse();
 		cleanup(thread_list.list->tid);
     }
-	printf("Cleaning all theread stacks\n");
+	// printf("Cleaning all theread stacks\n");
     release(&thread_list.lock);
 }
 
@@ -119,7 +122,7 @@ void signal_handler_alarm() {
     // printf("inside signal handler\n");    
     // disable alarm
     ualarm(0,0);
-    alarm_index = (alarm_index + 1) % NO_OF_KTHREADS;
+    alarm_index = (alarm_index + 1) % no_of_kthreads;
 	syscall(SYS_tgkill, getpid(), kthread_index[alarm_index], SIGVTALRM);
     return;
 }
@@ -145,7 +148,7 @@ int execute_me_oo(void *new_node) {
 	node *nn = (node*)new_node;
     if(nn->state==THREAD_EMBRYO)
 	    nn->state = THREAD_RUNNING;
-    printf("changed from embryo to running\n");
+    // printf("changed from embryo to running\n");
 
     // printf("in execute me");
     // if(nn->wrapper_fun->args)
@@ -174,7 +177,7 @@ int execute_me_mo() {
     // }
     acquire(&thread_list.lock);
     node *nn = curr_running_proc_array[get_curr_kthread_index()];
-    printf("state = %d %ld", nn->state, nn->tid);
+    // printf("state = %d %ld", nn->state, nn->tid);
     // while(nn->state != THREAD_RUNNING)
     //     nn = nn->next;
     release(&thread_list.lock);
@@ -285,8 +288,9 @@ void signal_handler_usr2() {
 
 void init_many_many() {     // TODO call only once in therad_create
     thread_list.list = NULL;
-    scheduler_node_array = (node*)malloc(sizeof(node)*NO_OF_KTHREADS);
-    for(int i=0; i<NO_OF_KTHREADS; i++){
+    kthread_index = (int*)malloc(sizeof(int)*no_of_kthreads);
+    scheduler_node_array = (node*)malloc(sizeof(node)*no_of_kthreads);
+    for(int i=0; i<no_of_kthreads; i++){
         
         scheduler_node_array[i].t_context = (jmp_buf*)malloc(sizeof(jmp_buf));
 
@@ -306,8 +310,8 @@ void init_many_many() {     // TODO call only once in therad_create
     // thread_list.list = (node*)malloc(sizeof(node)*NO_OF_KTHREADS);
     // release(&thread_list.lock);
 
-    curr_running_proc_array = (node**)malloc(sizeof(node*) * NO_OF_KTHREADS);
-    for(int i=0; i<NO_OF_KTHREADS; i++)
+    curr_running_proc_array = (node**)malloc(sizeof(node*) * no_of_kthreads);
+    for(int i=0; i<no_of_kthreads; i++)
         curr_running_proc_array[i] = NULL;
 
     signal(SIGALRM, signal_handler_alarm);
@@ -340,7 +344,7 @@ int thread_kill(mThread thread, int signal){
             node* n = search_thread(thread);
             if(! n) return NO_THREAD_FOUND;
             acquire(&thread_list.lock);
-            printf("set terminate done\n");
+            // printf("set terminate done\n");
             n->state = THREAD_TERMINATED;
             release(&thread_list.lock);
             // traverse();
@@ -461,9 +465,13 @@ int thread_kill(mThread thread, int signal){
     
 //     return 0;
 // }
+void set_no_of_kthreads(int num){
+    if(! is_init_done)
+        no_of_kthreads = num;
+    return;
+}
 
 int thread_create(mThread *thread, mThread_attr *attr, void *routine, void *args) {
-    static int is_init_done = 0;
 	if(! is_init_done) {
         // atexit(cleanupAll);
 		init_many_many();
@@ -522,7 +530,7 @@ int thread_create(mThread *thread, mThread_attr *attr, void *routine, void *args
     t_node->sig_info->rem_sig_cnt = 0;
     
     
-    if(t_node->tid < NO_OF_KTHREADS) {
+    if(t_node->tid < no_of_kthreads) {
         // printf("clone called\n");
         curr_running_proc_array[t_node->tid] = t_node;
         t_node->state = THREAD_EMBRYO;

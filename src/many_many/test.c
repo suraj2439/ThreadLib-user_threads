@@ -71,9 +71,9 @@ void emptyfun() {
 }
 
 void join_fun() {
-    // for(int i = 0; i < 3; i++) 
-        // sleep(1);
-    printf("fun finished\n");
+    for(int i = 0; i < 3; i++) 
+        sleep(1);
+    return;
 }
 
 void f1() {
@@ -394,6 +394,7 @@ void tmpfun2() {
 
 int main() {
     mThread t1, t2, t3, t4, t5;
+    set_no_of_kthreads(6);
     // thread_create(&t1, NULL, tmpfun1, NULL);
     // thread_create(&t2, NULL, tmpfun2, NULL);
     // thread_create(&t3, NULL, join_fun, NULL);

@@ -89,7 +89,7 @@ void release(struct spinlock *lk){
 
 void sleep_lock(void *chan, struct spinlock *lk){
 
-	printf("sleeping \n");
+	// printf("sleeping \n");
     if (lk == NULL){
 		perror("sleeping without lock1 \n");
 		exit(EXIT_FAILURE);
@@ -116,24 +116,24 @@ void sleep_lock(void *chan, struct spinlock *lk){
 
 static void wakeup_lock(void *chan){
 
-	printf("wake up\n");
+	// printf("wake up\n");
 	acquire(&thread_list.lock);
 
 	node* n = thread_list.list;
 
 	while(n){
-        printf("hi\n");
+        // printf("hi\n");
 		if(n->state == THREAD_SLEEPING && n->chan == chan){
-			printf("wake up sleeping %ld\n", n->tid);
+			// printf("wake up sleeping %ld\n", n->tid);
 			n->state = THREAD_RUNNABLE;
 			break;
 		}
 		n = n->next;
 	}
 
-    printf("wakeup exit\n");
+    // printf("wakeup exit\n");
     release(&thread_list.lock);
-    printf("wakeup2 exit\n");
+    // printf("wakeup2 exit\n");
 }
 
 
@@ -160,7 +160,7 @@ void acquiresleep(struct sleeplock *lk){
 
 	while(lk->locked){
 
-		printf("in if\n");
+		// printf("in if\n");
 		sleep_lock(lk, &lk->lk);
 	}
 	lk->locked = 1;
