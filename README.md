@@ -86,6 +86,11 @@ threadLib can be used to achieve parllel flow of execution of user program. It i
               Now right Kernel Thread got interrupted to pick the next thread for its execution.
         4. Next flow of execution for each Kernel Thread will be the same as in Many-One Model flow of execution. 
 
+# Usage:
+1. git clone https://github.com/suraj2439/threadLib-user_threads.git
+2. To run the testcases execute ./run_me located in /src folder.
+3. To run specific model provide user program and compile it with /src/one_one or /src/many_one 
+   or /src/many_many files.
 
 
 # Contributors
