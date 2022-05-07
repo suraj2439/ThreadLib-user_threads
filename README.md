@@ -1,92 +1,89 @@
-# user-threads
+# threadLib : Multi-Threading Library
+
+## Overview:
+threadLib is a multithreading library with three types of mapping models.</br>
+**1. One-One**</br>
+**2. Many-One**</br>
+**3. Many-Many**</br>
+threadLib can be used to achieve parllel flow of execution of user program. It is available for Unix-like POSIX operating systems.
 
 
+## 1. One-One Model:
+    Each user thread maps to one kernel thread. Kernel thread is created with clone system call.
+    Newly created thread is inserted in the linked list of threads. 
+    Each node of the linked list contains the metadata of corresponding thread.
 
-## Getting started
+<p align="center">
+  <img 
+    width="450"
+    height="450"
+    src="https://user-images.githubusercontent.com/61696982/167251262-0fa23612-5db8-4e1a-9fea-f6c9c21444a4.png"
+  >
+</p>
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## 2. Many-One Model:
+    All the user threads created by user will run on only one kernel thread.
+    Scheduler is use to schedule the many user threads on one kernel thread. 
+    Scheduler has its own context. Here main is also treated like other threads.
 
-## Add your files
+<p align="center">
+  <img 
+    align="center"
+    width="450"
+    height="450"
+    src="https://user-images.githubusercontent.com/61696982/167251431-e1ead0ea-c334-43fa-8823-59a7de440e68.png"
+  >
+</p>
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+### Flow of execution:
+        1. Suppose thread T1 is executing, after completing its time quantum it would receive an Timer Interrupt.
+        2. User defined signal handler of corresponding thread T1 will be invoked.
+        3. In signal handler the context of current thread is saved and we jump to Scheduler context.
+        4. Scheduler finds a RUNNABLE process and jumps to its context.
+        5. If newly selected thread has executed before for some time then the thread would resume execution in the 
+           signal handler where context was stored previously in step 3. 
+           Otherwise thread will start execution in wrapper function which is an argument to clone.
+        6. This thread will execute for its time quantum and the same process will be repeated.
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/suraj2439/user-threads.git
-git branch -M main
-git push -uf origin main
-```
+        Wrapper Function(execute_me in code):
+                Helps in identifying when thread is over. 
+                It simply calls the user function corresponding to thread.
 
-## Integrate with your tools
+<p align="center">
+  <img 
+    align="center"
+    src="https://user-images.githubusercontent.com/61696982/167254634-64a9ec32-aee4-4fb6-872f-791a25db91a9.png"
+  >
+</p>
 
-- [ ] [Set up project integrations](https://gitlab.com/suraj2439/user-threads/-/settings/integrations)
 
-## Collaborate with your team
+## 3. Many-Many Model:
+        In this model 'm' user threads run on 'n' kernel threads.
+        Each kernel thread has its own Scheduler i.e. there are 'n' instance of scheduler stored in the
+        array (scheduler_node_array[] in code).
+        There is single linked list of threads. Each contain metadata of corresponding thread. 
+        If any of the kernel thread gets Timer Interrupt then that kernel thread will pick its next thread 
+        from this linked list for execution.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+<p align="center">
+  <img 
+    align="center"
+    width="450"
+    height="450"
+    src="https://user-images.githubusercontent.com/61696982/167254772-a567c1b1-cd0f-4786-b580-33a372374499.png"
+  >
+</p>
 
-## Test and Deploy
+### Flow of execution:
+        1. If user creates new thread then each user thread will be created on seperate Kernel Thread 
+           till NO_OF_KTHREADS(max k-threads) exceeds.
+        2. If this limit exceeds, newly created thread will be inserted in the thread linked list for further execution.
+        3. On Timer Interrupt(SIGALARM) user defined signal_handler gets invoked.
+        NOTE: Here SIGALARM signal can interrupt any Kernel Thread(may not be the same by whome SIGALARM was set).
+              To resolve this constraint, SIGALARM handler will take next Kernel Thread in round-robin fashion and 
+              SIGVTALARM signal will be delivered to that specific Kernel Thread, 
+              Now right Kernel Thread got interrupted to pick the next thread for its execution.
+        4. Next flow of execution for each Kernel Thread will be the same as in Many-One Model flow of execution. 
 
-Use the built-in continuous integration in GitLab.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!).  Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
