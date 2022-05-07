@@ -87,3 +87,7 @@ threadLib can be used to achieve parllel flow of execution of user program. It i
         4. Next flow of execution for each Kernel Thread will be the same as in Many-One Model flow of execution. 
 
 
+
+# Contributors
+- Suraj Machhindra Yerkal   <yerkal.suraj@gmail.com>
+- Avishkar Rajkumar Andhale <avirandhale001@gmail.com>
